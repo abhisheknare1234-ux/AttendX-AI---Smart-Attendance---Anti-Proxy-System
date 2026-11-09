@@ -182,6 +182,7 @@ export default function NewSessionPage() {
                 value={classId}
                 onChange={(event) => setClassId(event.target.value)}
                 required
+                data-testid="class-select"
               >
                 <option value="">Select an assigned class</option>
                 {(classes.data ?? []).map((item) => (
@@ -204,6 +205,7 @@ export default function NewSessionPage() {
                 onChange={(event) => setSubjectId(event.target.value)}
                 disabled={!classId}
                 required
+                data-testid="subject-select"
               >
                 <option value="">Select a subject</option>
                 {subjectsForClass.map((item) => (
@@ -219,6 +221,7 @@ export default function NewSessionPage() {
                 value={classroomId}
                 onChange={(event) => setClassroomId(event.target.value)}
                 required
+                data-testid="classroom-select"
               >
                 <option value="">Select a classroom</option>
                 {(classrooms.data ?? []).map((room) => (
@@ -334,7 +337,7 @@ export default function NewSessionPage() {
             student&apos;s already-started attempt.
           </div>
 
-          <Button type="submit" size="lg" loading={submitting} className="w-full">
+          <Button type="submit" size="lg" loading={submitting} className="w-full" data-testid="create-session">
             <PlayCircle size={17} /> Create session
           </Button>
           <p className="text-center text-[11px] text-muted">

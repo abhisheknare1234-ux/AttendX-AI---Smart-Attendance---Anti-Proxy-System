@@ -7,10 +7,12 @@ educational institutions. It combines a rotating, signed session QR code, a temp
 server-evaluated location evidence and configurable identity-provider checks into an auditable
 backend decision — with a teacher review path when evidence is missing or borderline.
 
-> **Build status:** a functional pilot-ready technical build, verified locally. It is **not** a live
-> campus deployment, not a complete college ERP, and it makes no claim of perfect proxy prevention
-> or perfect biometric accuracy. Face and liveness verification require an institution-approved
-> provider to be configured; without one, those factors are reported honestly as `UNAVAILABLE`.
+> **Build status:** a functional pilot-ready technical build, verified locally on SQLite and real
+> PostgreSQL, with browser end-to-end tests. It is **not** a live campus deployment, not a complete
+> college ERP, and it makes no claim of perfect proxy prevention or perfect biometric accuracy.
+> Genuine local face matching is implemented with encrypted templates; it is **not** liveness.
+> Liveness requires an institution-approved provider and is reported honestly as `UNAVAILABLE`
+> when unconfigured.
 
 ## What is implemented and verified
 
@@ -30,7 +32,9 @@ backend decision — with a teacher review path when evidence is missing or bord
 | CSV account import: template, preview, validation, duplicate detection, commit, audit | Implemented and tested |
 | Reports, student history, subject summaries and CSV export | Implemented and tested |
 | Audit and security event trails | Implemented |
-| Face verification / liveness | Provider contract implemented; **no provider configured by default** |
+| Face verification | Genuine local YuNet+SFace matching with consent, encrypted templates, deletion; external HTTP provider optional. `none` by default. Tested for enrollment/match/crypto |
+| Liveness detection | Separate provider contract; **no liveness provider configured by default**, reported `UNAVAILABLE`. A face match is not liveness |
+| PostgreSQL deployment path | Full 42-test suite executed against PostgreSQL 16.2; Alembic baseline + biometric migration applied |
 | BLE presence monitoring | Schema/model only; not captured in this build |
 | Uniform detection | Not implemented (optional research feature) |
 | Scheduled automated backup job | Not included; documented operational requirement |
@@ -82,7 +86,7 @@ attendx-ai/
         providers/       # face and liveness provider contracts
         scripts/         # bootstrap_admin, seed_dev
       alembic/           # baseline migration
-      tests/             # 37 pytest tests
+      tests/             # 42 pytest tests (SQLite and PostgreSQL)
     web/
       app/               # landing, login, admin, teacher, student, attend flow, account
       components/        # design system, shell, scanner, QR, check-in flow
@@ -146,19 +150,32 @@ pytest -q
 
 Verified in this build:
 
-- **37 pytest tests passed** against an isolated in-memory SQLite database.
-- **`next build` succeeded**, producing 37 routes (landing, login, admin, teacher, student, attend).
+- **42 pytest tests passed** against isolated SQLite and, separately, against **real PostgreSQL
+  16.2** with the same suite.
+- **Alembic baseline + encrypted-face-template migration applied to PostgreSQL** (revision
+  `7891b2a61c2a`, 26 tables including `alembic_version`).
+- **`next build` succeeded**, with 37 routes.
+- **3 Playwright browser tests passed** against live Next.js + FastAPI servers: administrator
+  configuration screens; teacher session creation/opening and a complete mobile student check-in
+  (PIN → browser geolocation → finalize → accepted reference); mobile student scanner navigation.
 - **Live HTTP flow passed** against a real Uvicorn process: teacher creates/opens a session, student
   validates QR, enters PIN, submits location, finalizes, receives `ACCEPTED`/`present`/`FULL` with a
   unique reference; a duplicate check-in returns `409`; teacher live counts and admin reports reflect
   the record; CSV export returns `text/csv`.
-- **Next.js proxy verified**: login, `/auth/me` and teacher classes work through `localhost:3000`.
+- **Next.js proxy verified**: login, `/auth/me`, teacher classes and dashboard work through the web
+  origin with cookies.
+- **Local face provider validated end-to-end**: consent enrollment stored an encrypted 128-D
+  template; a genuine reflected probe scored **0.947853 → PASSED** and finalized **ACCEPTED**; an
+  impostor scored **0.121694 → FAILED** and finalized **REJECTED**; deletion cleared the template.
+  These are pipeline sanity checks, not an accuracy evaluation. See
+  [docs/FACE_VERIFICATION.md](docs/FACE_VERIFICATION.md).
 
-Run the live flow yourself:
+Run the browser suite with the API and web servers running (web on `127.0.0.1:3000` and API
+`WEB_ORIGIN` matching it):
 
 ```bash
-# with the API running on port 8000 and the development demo seed applied
-python scripts/live_flow_check.py
+cd apps/web
+npx playwright test
 ```
 
 ## Environment and secrets
@@ -183,6 +200,14 @@ The API container runs `alembic upgrade head` before starting. The web container
 production build. **Docker was not available on the development machine, so the Compose path is
 configuration-verified but not runtime-verified.** See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
+For local face verification, download the models on the API host and set
+`FACE_PROVIDER=local_opencv`; the model files are not baked into the image:
+
+```bash
+cd apps/api
+python -m app.scripts.download_face_models --dir /app/models
+```
+
 ## Security summary
 
 - Argon2id password hashing; account lockout; generic login failures.
@@ -190,9 +215,11 @@ configuration-verified but not runtime-verified.** See [docs/DEPLOYMENT.md](docs
 - Session-bound CSRF token required for every mutating request.
 - Role and resource checks on every teacher/student/admin endpoint.
 - Signed, expiring, session-bound QR tokens; PIN hashed and invalidated on close.
+- Optional local face templates are encrypted at rest (Fernet/HKDF), consent-gated, deletable and
+  never returned by an API. Raw images are not persisted. Face matching is not liveness.
 - No raw face images or biometric templates are stored by the core attendance record.
-- Audit trail for provisioning, sessions, reviews, corrections and exports; security events for
-  failed logins, lockouts, PIN failures and rejected attendance.
+- Audit trail for provisioning, sessions, reviews, corrections, face enrollment/deletion and exports;
+  security events for failed logins, lockouts, PIN failures and rejected attendance.
 - No public registration or self-assigned privileged roles.
 
 See [docs/SECURITY_AND_PRIVACY.md](docs/SECURITY_AND_PRIVACY.md) and
@@ -207,6 +234,7 @@ See [docs/SECURITY_AND_PRIVACY.md](docs/SECURITY_AND_PRIVACY.md) and
 - [Design system](docs/DESIGN_SYSTEM.md)
 - [Dual UI architecture](docs/DUAL_UI_ARCHITECTURE.md)
 - [Attendance workflow](docs/ATTENDANCE_WORKFLOW.md)
+- [Face verification and liveness](docs/FACE_VERIFICATION.md)
 - [Security and privacy](docs/SECURITY_AND_PRIVACY.md)
 - [Threat model](docs/THREAT_MODEL.md)
 - [Reference project analysis](docs/REFERENCE_PROJECT_ANALYSIS.md)

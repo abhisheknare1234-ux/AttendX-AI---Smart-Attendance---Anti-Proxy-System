@@ -174,6 +174,9 @@ returns `status: rejected` and `classification: INVALID`.
 | GET | `/student/reviews` | Own review requests |
 | POST | `/student/review-requests` | `{session_id, reason}` |
 | GET | `/student/profile` | Own account and academic profile |
+| GET | `/student/face-enrollment` | Enrollment status/metadata; never returns a template or image |
+| POST | `/student/face-enrollment` | Multipart `image`, `consent=true`, `consent_version`; local provider only |
+| DELETE | `/student/face-enrollment` | Clears the encrypted template and records deletion |
 
 ## 8. Reports
 

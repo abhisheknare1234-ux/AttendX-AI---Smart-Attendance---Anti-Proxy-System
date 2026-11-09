@@ -22,7 +22,19 @@ not a legal opinion. Review each project's current licence and notices before di
 | python-multipart | Apache-2.0 | Multipart uploads |
 | email-validator | Unlicense (public domain) | Email syntax validation |
 | psycopg 3 | LGPL-3.0 (with exceptions) | PostgreSQL driver (production) |
+| cryptography | Apache-2.0 / BSD-3-Clause | Fernet encryption for face templates |
+| OpenCV (opencv-python-headless) | Apache-2.0 | Image decode, YuNet detector, SFace recognizer |
+| NumPy | BSD-3-Clause | Embedding math |
 | pytest / pytest-cov / httpx | MIT / MIT / BSD-3-Clause | Development and testing |
+| Playwright | Apache-2.0 | Browser end-to-end tests (development) |
+
+## Face models
+
+- `face_detection_yunet_2023mar.onnx` and `face_recognition_sface_2021dec.onnx` are downloaded from
+  the OpenCV Model Zoo by `app/scripts/download_face_models.py` with pinned SHA-256 hashes. They are
+  **not committed**. Review the OpenCV Zoo model-specific licences/terms before institutional use.
+- No biometric evaluation dataset is included. Local sanity images used during development were not
+  committed.
 
 ## Frontend (Node)
 

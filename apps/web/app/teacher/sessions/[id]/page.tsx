@@ -219,7 +219,7 @@ export default function TeacherSessionLivePage() {
 
           {isOpen ? (
             <div className="grid gap-6 p-5 sm:grid-cols-[auto_1fr]">
-              <div className="mx-auto rounded-2xl border border-line bg-white p-3 shadow-sm">
+              <div className="mx-auto rounded-2xl border border-line bg-white p-3 shadow-sm" data-testid="attendance-qr">
                 <QrSvg value={live.qr?.url} size={248} />
                 <p className="mt-2 text-center text-[10px] text-muted">
                   Signed token · expires in {formatSeconds(qrRemaining)}
@@ -231,7 +231,7 @@ export default function TeacherSessionLivePage() {
                     Temporary PIN
                   </p>
                   {pin ? (
-                    <p className="mt-1 font-mono text-3xl font-bold tracking-[0.2em] text-ink">
+                    <p data-testid="session-pin" className="mt-1 font-mono text-3xl font-bold tracking-[0.2em] text-ink">
                       {pin}
                     </p>
                   ) : (
@@ -249,7 +249,7 @@ export default function TeacherSessionLivePage() {
                     Session link
                   </p>
                   <div className="mt-1 flex items-start justify-between gap-2">
-                    <p className="break-all text-[11px] leading-relaxed text-ink">{live.qr?.url}</p>
+                    <p data-testid="session-link" className="break-all text-[11px] leading-relaxed text-ink">{live.qr?.url}</p>
                     <Button variant="ghost" size="sm" onClick={() => void copyLink()}>
                       {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
                     </Button>
@@ -286,7 +286,7 @@ export default function TeacherSessionLivePage() {
                   window and creates the first signed QR token and temporary PIN. This action is
                   audited.
                 </p>
-                <Button className="mt-4" onClick={() => void openSession()} loading={busy === "open"}>
+                <Button className="mt-4" onClick={() => void openSession()} loading={busy === "open"} data-testid="open-session">
                   <PlayCircle size={16} /> Open session now
                 </Button>
               </div>
@@ -305,6 +305,7 @@ export default function TeacherSessionLivePage() {
             value={session.accepted}
             tone="green"
             icon={<CheckCircle2 size={17} />}
+            testId="accepted-count"
           />
           <StatCard
             label="Pending steps"

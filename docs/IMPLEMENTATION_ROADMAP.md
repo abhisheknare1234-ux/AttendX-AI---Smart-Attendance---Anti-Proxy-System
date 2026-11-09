@@ -53,20 +53,19 @@ Status legend: **Done**, **Partial**, **Not started**.
 - Permission/unavailable evidence paths; risk review semantics.
 - Geofence configuration UI/API.
 
-## Phase 7 — Face verification — Partial (provider required)
+## Phase 7 — Face verification — Done (local provider; external optional)
 
-- Provider protocol and HTTP adapter, enrollment/consent metadata model.
-- Honest `UNAVAILABLE` when unconfigured/not enrolled.
-- No bundled model, no threshold evaluation, no fabricated scores.
-- **Next:** select and evaluate an institution-approved provider; calibrate thresholds; add a local
-  stub for contract tests.
+- Genuine local YuNet + SFace matching, quality checks, cosine threshold, honest UNAVAILABLE states.
+- Consent-based enrollment, encrypted 128-D templates, deletion workflow, student UI.
+- External HTTP provider adapter retained.
+- **Next:** evaluated accuracy/fairness dataset, supervised enrollment, liveness integration.
 
-## Phase 8 — Liveness and risk engine — Partial (provider required for liveness)
+## Phase 8 — Liveness and risk engine — Partial (risk done; liveness provider required)
 
-- Separate liveness provider contract and status handling.
+- Separate liveness provider contract and status handling; no liveness provider by default.
 - Deterministic risk engine with reason codes, factor states, score points.
 - Teacher review queue, student requests and corrections.
-- **Next:** provider integration and evaluation; concurrency tests.
+- **Next:** provider evaluation and integration; concurrency tests.
 
 ## Phase 9 — Presence monitoring — Not implemented (schema only)
 
@@ -85,22 +84,25 @@ Status legend: **Done**, **Partial**, **Not started**.
 ## Phase 11 — Security and hardening — Partial
 
 - Tests, audit/security trails, headers, validation, secrets separation.
-- **Next:** PostgreSQL concurrency tests, shared rate limiting, trusted proxy IPs, staff MFA,
-  password reset, dependency auditing, load tests, automated retention/deletion, DPIA.
+- Encrypted biometric templates and deletion workflow.
+- PostgreSQL full-suite verification.
+- **Next:** shared rate limiting, trusted proxy IPs, staff MFA, password reset, dependency auditing,
+  load tests, automated retention/deletion, DPIA.
 
 ## Phase 12 — Pilot preparation — Partial
 
 - Documentation, tests, known limitations, deployment configuration.
-- **Next:** end-to-end browser tests on real devices, institution-specific consent/policy, provider
-  procurement, PostgreSQL staging deployment, backup/restore drill, pilot proposal.
+- Browser end-to-end tests for the core flow.
+- **Next:** institution-specific consent/policy, provider procurement/evaluation, staging
+  backup/restore drill, real-device camera/GPS testing, pilot proposal.
 
 ## Immediate next highest-priority tasks
 
-1. Run the full suite and application against **PostgreSQL** in staging (docker compose or managed
-   Postgres).
-2. Add Playwright e2e for teacher login → open → QR display and student scan/PIN/location/finalize.
-3. Replace the in-process limiter with a shared store and forward real client IPs at the ingress.
-4. Configure one approved face/liveness provider and run an evaluation before any real biometric use.
+1. Run the stack in a **staging deployment** with managed PostgreSQL, TLS, backups and real ingress
+   forwarding client IPs.
+2. Run Playwright on physical Android/iOS devices for camera QR scanning and real GPS variation.
+3. Configure and evaluate an approved **liveness** provider; local face matching is not liveness.
+4. Replace the in-process limiter with a shared store.
 5. Add automated evidence-retention cleanup and a DPIA/consent package.
 6. Add staff MFA and password reset.
 7. Evaluate BLE hardware feasibility for presence monitoring.

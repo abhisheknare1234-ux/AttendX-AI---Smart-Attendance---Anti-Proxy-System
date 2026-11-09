@@ -426,6 +426,19 @@ export interface Health {
   version: string;
 }
 
+export interface FaceEnrollment {
+  status: "not_enrolled" | "pending" | "active" | "deleted";
+  provider: string;
+  model_name: string | null;
+  model_version: string | null;
+  consent_version: string | null;
+  consented_at: string | null;
+  deleted_at: string | null;
+  dimension: number | null;
+  local_face_available: boolean;
+  liveness_provider: string;
+}
+
 export interface ImportPreview {
   kind: string;
   total_rows: number;

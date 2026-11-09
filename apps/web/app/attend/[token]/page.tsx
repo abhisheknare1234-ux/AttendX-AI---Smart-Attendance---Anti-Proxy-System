@@ -204,7 +204,7 @@ function AttendContent() {
               </Link>
             </div>
           ) : session.can_check_in ? (
-            <Button className="w-full" size="lg" onClick={() => void begin()} loading={starting}>
+            <Button className="w-full" size="lg" onClick={() => void begin()} loading={starting} data-testid="begin-check-in">
               <ShieldCheck size={17} /> Begin verified check-in
             </Button>
           ) : (

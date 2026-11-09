@@ -70,11 +70,16 @@ class Settings(BaseSettings):
 
     # --- Verification providers -----------------------------------------
     # "none" means the factor is genuinely unavailable and is reported as
-    # such. It never fabricates a successful verification.
-    face_provider: Literal["none", "http"] = "none"
+    # such. It never fabricates a successful verification. "local_opencv"
+    # uses local YuNet + SFace models and encrypted templates.
+    face_provider: Literal["none", "http", "local_opencv"] = "none"
     face_http_url: str = ""
     face_http_token: str = ""
     face_provider_model: str = "external-face-v1"
+    face_model_dir: str = "models"
+    face_match_threshold: float = Field(default=0.363, ge=0.0, le=1.0)
+    face_detection_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    face_template_key: str = ""
 
     liveness_provider: Literal["none", "http"] = "none"
     liveness_http_url: str = ""

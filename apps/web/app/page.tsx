@@ -46,8 +46,8 @@ const verificationFactors = [
   {
     icon: ScanFace,
     title: "Face verification",
-    body: "A provider contract with an honest UNAVAILABLE state. No provider configured means no fabricated match and no invented confidence score.",
-    status: "Provider required",
+    body: "Genuine local OpenCV SFace matching against a consent-based, encrypted template — or an external provider. Unconfigured means UNAVAILABLE, never a fabricated match.",
+    status: "Implemented (local)",
   },
   {
     icon: Fingerprint,
@@ -69,13 +69,15 @@ const implemented = [
   "Academic configuration and CSV account provisioning",
   "Dynamic QR + PIN check-in with duplicate protection",
   "Server-side geofence evaluation",
+  "Genuine local face matching with encrypted, consent-based templates",
   "Explainable risk decisions and teacher review queue",
   "Attendance reports and CSV export",
   "Audit and security event trails",
 ];
 
 const pilotOnly = [
-  "Face and liveness providers require institutional selection and configuration",
+  "Liveness still requires an institution-approved provider; face matching alone is not liveness",
+  "Local face templates require model installation, supervised enrollment and a DPIA",
   "BLUETOOTH presence monitoring is designed in the data model but not captured in this build",
   "Real biometric processing needs consent, a DPIA and legal review",
   "Institution data must be verified through authorized records, never seeded in production",
@@ -229,7 +231,7 @@ export default function LandingPage() {
               Core attendance flow implemented
             </span>
             <span className="rounded-full border border-[#FEDF89] bg-[#FFFAEB] px-2.5 py-1 font-semibold text-[#B54708]">
-              Face and liveness: provider configuration required
+              Liveness: provider configuration required
             </span>
             <span className="rounded-full border border-line bg-white px-2.5 py-1 font-semibold text-muted">
               BLE presence: future integration
@@ -354,7 +356,7 @@ export default function LandingPage() {
                     </span>
                     <span
                       className={
-                        factor.status === "Implemented"
+                        factor.status.startsWith("Implemented")
                           ? "rounded-full bg-[#ECFDF3] px-2 py-0.5 text-[10px] font-bold text-[#067647]"
                           : "rounded-full bg-[#FFFAEB] px-2 py-0.5 text-[10px] font-bold text-[#B54708]"
                       }
@@ -559,8 +561,8 @@ export default function LandingPage() {
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-[#475467]">
               Next.js and FastAPI share one PostgreSQL schema. Docker Compose defines the runtime.
-              Face and liveness are provider contracts so the institution can choose an approved
-              service instead of locking identity evidence into an opaque demo model.
+              Face verification can run locally with OpenCV SFace and encrypted templates, while
+              liveness and externally approved identity services remain explicit provider contracts.
             </p>
           </div>
           <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

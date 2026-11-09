@@ -28,7 +28,8 @@ has two purpose-built layouts sharing one backend, one database and one authoriz
 
 ### Student (mobile-first)
 `/student` home · `/student/scan` · `/student/attendance` history · `/student/subjects` ·
-`/student/reviews` · `/student/profile` · `/attend/{token}` — QR entry and verification flow
+`/student/reviews` · `/student/profile` (including consent-based face enrollment) ·
+`/attend/{token}` — QR entry and verification flow
 
 ### Account
 `/account/password` — available to all authenticated roles.

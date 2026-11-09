@@ -4,19 +4,25 @@ This list is deliberately explicit. A feature is not “working” because a scr
 
 ## Verification and attendance
 
-1. **No face or liveness provider is configured by default.** Those factors return `UNAVAILABLE`.
-   No bundled model, no confidence score, no success is fabricated. Provider accuracy, fairness and
-   spoof resistance have not been evaluated here.
-2. **No uniform detection** is implemented. It remains an optional, unauthorized research idea.
-3. **BLE/presence monitoring is not captured.** The `presence_events` table and policy fields exist,
+1. **Local face matching is implemented but no liveness provider is configured.** Face matching uses
+   YuNet + SFace and encrypted templates, but it does not detect presentation attacks. Liveness
+   returns `UNAVAILABLE` until an approved provider is configured; no success is fabricated.
+2. **Face accuracy and fairness are unevaluated.** The local sanity check (same identity 0.947853,
+   different identity 0.121694 at threshold 0.363) proves the pipeline works, not its real-world
+   error rates. No FAR/FRR, demographic, lighting, age or spoof evaluation has been performed.
+3. **Enrollment is self-service with consent, without supervised identity proof or enrollment
+   liveness.** A student could enroll a photo of another person; an institutional pilot should use
+   supervised enrollment.
+4. **No uniform detection** is implemented. It remains an optional, unauthorized research idea.
+5. **BLE/presence monitoring is not captured.** The `presence_events` table and policy fields exist,
    but no beacon ingestion or presence-ratio classification is implemented. Final classification is
    currently FULL on acceptance, PENDING_REVIEW on review, INVALID on rejection, ABSENT on teacher
    absence marking.
-4. **Initial check-in ≠ proof of remaining for the lecture.** Without presence monitoring, accepted
+6. **Initial check-in ≠ proof of remaining for the lecture.** Without presence monitoring, accepted
    attendance only reflects the verified check-in.
-5. **Browser GPS and camera inputs are not tamper-proof.** A modified browser/OS can spoof location
+7. **Browser GPS and camera inputs are not tamper-proof.** A modified browser/OS can spoof location
    or feed a replayed image. These are evidence signals, not proof.
-6. **PIN display is generation-only.** Because only an Argon2 hash is stored, a teacher who reloads
+8. **PIN display is generation-only.** Because only an Argon2 hash is stored, a teacher who reloads
    the live page must regenerate the PIN to see it again. Students already verified are unaffected.
 
 ## Security and operations
@@ -35,21 +41,25 @@ This list is deliberately explicit. A feature is not “working” because a scr
 
 ## Data and deployment
 
-15. **SQLite is used for development and tests.** The production target is PostgreSQL, but the
-    PostgreSQL path has not been executed on this host (no PostgreSQL, no Docker).
+15. **SQLite remains the default local profile; PostgreSQL is now validated.** The full suite passed
+    against PostgreSQL 16.2 and both Alembic revisions applied, but high-concurrency/large-data
+    behaviour was not load-tested.
 16. **Docker/Compose was not runtime-verified** because Docker is unavailable on the development
     machine. The definitions are configuration-reviewed only.
-17. **Alembic baseline** was applied to SQLite; it has not been applied to a real PostgreSQL instance.
+17. **Alembic revisions apply to PostgreSQL**, including the encrypted-face-template migration; a
+    backup/restore drill has not been performed.
 18. **No automated backup job.** Backups are documented as an operational responsibility.
 19. **No CI/CD pipeline** or secret scanning/dependency auditing is configured.
 
 ## Testing
 
-20. **No Playwright/browser e2e tests were executed**; browser binaries are not installed on this
-    host. A live HTTP flow and the Next proxy were verified with `httpx` instead.
+20. **Browser end-to-end tests cover the desktop admin screens, teacher session lifecycle and a
+    mobile student check-in with mocked geolocation.** Real camera scanning and physical-device GPS
+    variation are still unverified.
 21. **No visual regression/screenshot tests.**
 22. **No load/performance tests** and no concurrency stress test.
-23. **Provider contract adapters are untested against a real provider** (no stub tests yet).
+23. **Face/liveness provider accuracy is not evaluated**; only the local SFace/YuNet pipeline was
+    sanity-checked with a tiny sample. FACE_TEMPLATE_KEY rotation invalidates enrolled templates.
 
 ## Legal and institutional
 

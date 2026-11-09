@@ -909,16 +909,9 @@ def _geofence_config(
 
 
 def _active_biometric(db: Session, student_id: uuid.UUID) -> bool:
-    from app.models import BiometricEnrollment, BiometricStatus
+    from app.services.biometrics import has_active_enrollment
 
-    enrollment = db.scalar(
-        select(BiometricEnrollment).where(BiometricEnrollment.student_id == student_id)
-    )
-    return bool(
-        enrollment
-        and enrollment.status == BiometricStatus.ACTIVE
-        and enrollment.consented_at is not None
-    )
+    return has_active_enrollment(db, student_id)
 
 
 def submit_face(
@@ -950,17 +943,30 @@ def submit_face(
         if content_type not in {"image/jpeg", "image/png", "image/webp"}:
             raise errors.bad_request("Only JPEG, PNG or WebP images are accepted.", "UNSUPPORTED_IMAGE")
 
+    reference_embedding = None
+    enrollment_ok = _active_biometric(db, student_id)
+    if provider.name == "local_opencv" and enrollment_ok:
+        from app.services.biometrics import active_reference_embedding
+
+        reference_embedding = active_reference_embedding(db, student_id, settings)
+
     if image is None:
         result = VerificationResult(
             status=FactorStatus.UNAVAILABLE,
             reason_code="FACE_IMAGE_MISSING",
             provider=provider.name,
         )
+    elif provider.name == "local_opencv" and (not enrollment_ok or reference_embedding is None):
+        result = VerificationResult(
+            status=FactorStatus.UNAVAILABLE,
+            reason_code="FACE_NOT_ENROLLED",
+            provider=provider.name,
+        )
     elif not provider.configured:
         result = provider.verify(
             image=image, content_type=content_type, student_reference=str(student_id)
         )
-    elif not _active_biometric(db, student_id):
+    elif provider.name != "local_opencv" and not enrollment_ok:
         result = VerificationResult(
             status=FactorStatus.UNAVAILABLE,
             reason_code="FACE_NOT_ENROLLED",
@@ -969,7 +975,10 @@ def submit_face(
     else:
         try:
             result = provider.verify(
-                image=image, content_type=content_type, student_reference=str(student_id)
+                image=image,
+                content_type=content_type,
+                student_reference=str(student_id),
+                reference_embedding=reference_embedding,
             )
         except Exception:  # noqa: BLE001 - provider boundary
             result = VerificationResult(

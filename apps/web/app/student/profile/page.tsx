@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { KeyRound, UserRound } from "lucide-react";
 import { Alert, Card, CardHeader, DefinitionRow, PageHeader, Skeleton } from "@/components/ui";
+import { FaceEnrollmentCard } from "@/components/face-enrollment";
 import { useApiData } from "@/hooks/use-api-data";
 import { formatDateTime } from "@/lib/api";
 import type { User } from "@/lib/types";
@@ -52,6 +53,9 @@ export default function StudentProfilePage() {
             )}
           </div>
         </Card>
+      </div>
+      <div className="mt-3">
+        <FaceEnrollmentCard />
       </div>
       <Card className="mt-3">
         <div className="flex flex-wrap items-center justify-between gap-3 p-4">

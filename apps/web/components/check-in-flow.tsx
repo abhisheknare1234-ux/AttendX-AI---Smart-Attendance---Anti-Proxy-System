@@ -226,7 +226,7 @@ export function CheckInFlow({ initial }: { initial: CheckInResponse }) {
           >
             {accepted ? <CheckCircle2 size={28} /> : review ? <AlertTriangle size={28} /> : <XCircle size={28} />}
           </span>
-          <h2 className="mt-4 text-xl font-semibold text-ink">
+          <h2 className="mt-4 text-xl font-semibold text-ink" data-testid="attendance-result">
             {accepted
               ? "Attendance confirmed"
               : review
@@ -369,13 +369,14 @@ export function CheckInFlow({ initial }: { initial: CheckInResponse }) {
               placeholder="6-digit PIN"
               className="text-center font-mono text-2xl tracking-[0.35em]"
               aria-label="Temporary attendance PIN"
+              data-testid="pin-input"
             />
             <p className="text-[11px] text-muted">
               {attempt.pin_attempts > 0
                 ? `Incorrect attempts so far: ${attempt.pin_attempts}. Too many will require teacher review.`
                 : "Ask your teacher to show the current PIN if you cannot read it."}
             </p>
-            <Button className="w-full" onClick={() => void submitPin()} loading={busy === "pin"} disabled={pin.length < 4}>
+            <Button className="w-full" onClick={() => void submitPin()} loading={busy === "pin"} disabled={pin.length < 4} data-testid="verify-pin">
               Verify PIN
             </Button>
           </div>
@@ -391,7 +392,7 @@ export function CheckInFlow({ initial }: { initial: CheckInResponse }) {
               Indoor GPS can be imprecise; a weak fix is recorded as evidence and may lead to teacher
               review rather than automatic rejection.
             </p>
-            <Button className="w-full" onClick={() => void submitLocation()} loading={busy === "gps"}>
+            <Button className="w-full" onClick={() => void submitLocation()} loading={busy === "gps"} data-testid="share-location">
               <LocateFixed size={16} /> Share my location
             </Button>
             <button
@@ -446,7 +447,7 @@ export function CheckInFlow({ initial }: { initial: CheckInResponse }) {
               The backend will evaluate every factor against the session policy. Accepted attendance
               receives a unique reference; borderline or missing evidence is sent to teacher review.
             </p>
-            <Button className="w-full" size="lg" onClick={() => void finalize()} loading={busy === "finalize"}>
+            <Button className="w-full" size="lg" onClick={() => void finalize()} loading={busy === "finalize"} data-testid="finalize-attendance">
               <ShieldCheck size={17} /> Finalize attendance
             </Button>
           </div>

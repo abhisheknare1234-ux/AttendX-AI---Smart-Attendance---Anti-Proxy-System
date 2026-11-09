@@ -126,7 +126,7 @@ occurred_at, JSON details. The table and model exist; no BLE ingestion is implem
 | `attendance_corrections` | Immutable old→new status/classification with actor and reason |
 | `audit_events` | Append-only administrative actions, actor, entity, JSON details, IP |
 | `security_events` | Login/PIN/attendance security signals with severity |
-| `biometric_enrollments` | Consent metadata and provider/model version; **no templates/images stored here** |
+| `biometric_enrollments` | Consent metadata, provider/model version, encrypted face template ciphertext and dimension; **no raw images** |
 | `import_jobs` | CSV import summary and row errors |
 | `app_settings` | Key/JSON value settings table (seeded/used by future configuration UI) |
 
@@ -169,9 +169,18 @@ alembic current               # show revision
 alembic history               # list
 ```
 
-Baseline revision: `64b3e63288ee` (`initial attendance schema`). It was applied successfully to a
-fresh SQLite database during this build. The same operations target PostgreSQL; the migration uses
-standard `sa.Uuid`, `sa.String`, `sa.DateTime(timezone=True)` and `sa.JSON` types.
+Baseline revision: `64b3e63288ee` (`initial attendance schema`).
+Second revision: `7891b2a61c2a` (`encrypted face templates`) adds
+`biometric_enrollments.template_ciphertext` and `template_dimension`.
+
+Both revisions were applied successfully to **real PostgreSQL 16.2** in this build (26 tables in the
+migration database including `alembic_version`; 25 runtime tables). The same operations also target
+SQLite for development. The migrations use standard `sa.Uuid`, `sa.String`, `sa.DateTime(timezone=True)`,
+`sa.Text` and `sa.JSON` types.
+
+**Face template storage:** only a 128-D embedding is persisted, encrypted with Fernet
+(AES-128-CBC + HMAC-SHA256) under an HKDF-derived key. Raw enrollment/capture images are not stored.
+The column is nullable so deletion can clear it while retaining an audit record.
 
 The development profile creates tables directly on startup as a convenience. **Production must run
 Alembic**; the API container does so before Uvicorn starts.

@@ -119,6 +119,8 @@ class BiometricEnrollment(Base):
         BiometricStatus, default=BiometricStatus.NOT_ENROLLED
     )
     template_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    template_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
+    template_dimension: Mapped[int | None] = mapped_column(nullable=True)
     consent_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     consented_at: Mapped[datetime | None] = mapped_column(nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)

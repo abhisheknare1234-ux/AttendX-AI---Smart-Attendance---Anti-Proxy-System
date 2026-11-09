@@ -16,6 +16,9 @@ htmlcov/
 *.sqlite
 *.sqlite3
 
+# Local face model binaries (download with app.scripts.download_face_models)
+apps/api/models/
+
 # Environment and secrets
 .env
 .env.*

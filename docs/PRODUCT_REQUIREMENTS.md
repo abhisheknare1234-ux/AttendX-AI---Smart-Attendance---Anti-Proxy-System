@@ -72,7 +72,8 @@ timetable optimization, continuous location tracking, automatic disciplinary act
 | QR token validated server-side; never marks attendance by itself | Implemented |
 | PIN submission with attempt limit and rate limit | Implemented |
 | Location evidence with explicit statuses (`INSIDE_GEOFENCE`, `OUTSIDE_GEOFENCE`, `LOW_ACCURACY`, `PERMISSION_DENIED`, `UNAVAILABLE`, `STALE`) | Implemented |
-| Face verification and liveness with `PASSED/FAILED/UNAVAILABLE` states | Contract implemented; providers unconfigured by default |
+| Face verification | Implemented: local YuNet+SFace with encrypted templates and consent; external HTTP provider optional. Unconfigured = `UNAVAILABLE` |
+| Liveness detection | Separate provider contract implemented; no liveness provider configured by default, reported `UNAVAILABLE` |
 | Duplicate attendance prevention | Implemented with a database unique constraint |
 | Final result with reference for accepted attendance | Implemented |
 

@@ -15,12 +15,12 @@ complete prevention of collusion.
 | 4 | Replay after close | Student reuses a valid-looking token after the teacher closes | Stale attendance | Close revokes all tokens and clears PIN; validation/finalization check open state | `test_closed_session_invalidates_qr` | A token used before close but finalized just before closure is legitimate per policy |
 | 5 | Duplicate requests | Double-click/submit or concurrent finalize creates two records | Inflated attendance | Unique `(session_id, student_id)`; idempotent finalize; existing-record check at check-in | `test_full_verified_flow_and_duplicate_prevention`, `test_pin_attempt_limit…` duplicate check | None at the database level for the same session/student |
 | 6 | GPS spoofing | Modified client or developer tools reports classroom coordinates | False location evidence | Server-side distance/accuracy/staleness; GPS is evidence, not proof; review policy; optional identity checks | `test_geofence_risk.py` (inside/outside/low-accuracy/stale/permission) | Browser geolocation cannot be trusted against a tampered OS/browser; treat as a signal |
-| 7 | Face-photo attack | Student holds a printed photo to the camera | Identity bypass | Provider must implement presentation-attack detection; AttendX does not claim its own liveness from a photo | Provider contract tests are not run without a provider | Entirely provider-dependent; no anti-spoof model is bundled |
-| 8 | Video replay | Pre-recorded video played to the camera | Identity/liveness bypass | Liveness is a separate provider contract; pass/fail recorded honestly | No provider configured → `UNAVAILABLE` (verified in live flow only when required) | Provider must be evaluated against its own video-replay threat model |
+| 7 | Face-photo attack | Student holds a printed photo or screen to the camera | Identity bypass | Local SFace matching is genuine but is **not** anti-spoofing; configure a liveness provider. Unavailable liveness → review | `test_biometrics.py` (pipeline/consent); local check same 0.9479 / different 0.1217 | A photo/screen may pass face matching without liveness; no presentation-attack model is bundled |
+| 8 | Video replay | Pre-recorded video played to the camera | Identity/liveness bypass | Liveness is a separate provider contract; pass/fail recorded honestly; face alone is not liveness | No liveness provider configured → `UNAVAILABLE` | Provider must be evaluated against its own video-replay threat model |
 | 9 | Liveness bypass | Simple blink/head-turn expected to defeat replay | False sense of security | Product does not implement or market a naive liveness method; unconfigured = `UNAVAILABLE` | Risk engine treats unavailable as review, not passed | Real liveness quality is unverified without an approved provider |
 | 10 | Unauthorized access | Student/teacher accesses another role's endpoints or records | Data disclosure/modification | Session auth, role checks, ownership checks, enum-scoped queries, CSRF | `test_auth.py::test_student_cannot_access_admin`, `test_teacher_cannot_access_another_teachers_session` | Missing tests for every endpoint combination; review new routes carefully |
 | 11 | Privilege escalation | User tries to register/assign a privileged role | Admin takeover | No registration endpoint; admin-only role creation; admin creation endpoint restricted to admins; no role change via PATCH | No registration route exists; CSRF/RBAC tests | A compromised admin session is game over; strong admin MFA is future work |
-| 12 | Biometric data exposure | Admin or attacker reads face templates/images | Privacy harm | No raw images/templates in attendance records; provider metadata only; admin API exposes no biometrics; access limited | Provider status page and schemas show metadata only | Provider-side retention/security is external and must be contracted |
+| 12 | Biometric data exposure | Admin or attacker reads face templates/images | Privacy harm | Only an encrypted 128-D template is stored; raw images are not persisted; admin APIs never return templates; deletion supported | `test_biometrics.py` roundtrip/tamper and encrypted-at-rest assertion | Application process can decrypt templates by design; database/app access must be controlled |
 | 13 | Database compromise | Attacker reads the database | Credential/session/PIN exposure | Argon2id passwords and PINs; SHA-256 session token hashes; no plaintext tokens; secrets from environment | Code review of models/security | Argon2 hashes can be cracked if passwords are weak; rotate all secrets after a breach |
 | 14 | Secret leakage | `.env`, logs, client bundle, repository | Full compromise | `.env` gitignored; provider tokens only server-side; no secrets in responses; no PIN/token logging | `.gitignore`, config review, API responses | Operator mistakes remain possible; secret scanning/rotation policies required |
 | 15 | Race conditions | Parallel finalize/check-in requests | Duplicate or inconsistent records | Transactional finalize + unique constraint + idempotent paths; PIN counters increment transactionally | Duplicate flow test; design review; no automated concurrency stress test yet | SQLite tests do not prove PostgreSQL concurrency; add a concurrency test |
@@ -31,10 +31,12 @@ complete prevention of collusion.
 ## Highest-priority residual risks
 
 1. **Collusion in the same room** with identity factors disabled.
-2. **Provider-dependent spoof resistance** (face/liveness) is unevaluated until procurement/calibration.
-3. **Proxy IP visibility** affecting rate limiting when the API sits behind the Next rewrite.
-4. **No institutional DPIA/consent** yet; biometric processing must not begin without it.
-5. **No automated retention/deletion** for evidence and audit data.
+2. **No liveness provider is configured**, so face-photo/screen replay against local face matching is
+   a real residual risk. Face match must not be treated as anti-spoofing.
+3. **Face accuracy/fairness is unevaluated**; the local SFace sanity check is not an accuracy study.
+4. **Proxy IP visibility** affecting rate limiting when the API sits behind the Next rewrite.
+5. **No institutional DPIA/consent** yet; biometric processing must not begin without it.
+6. **No automated retention/deletion** for evidence and audit data.
 
 ## Recommended next security work
 

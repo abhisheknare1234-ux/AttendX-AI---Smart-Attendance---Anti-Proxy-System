@@ -63,11 +63,16 @@ profile ownership). Admin endpoints do not expose password hashes or raw biometr
 
 - Face/liveness providers are optional adapters. Unavailable providers produce `UNAVAILABLE`, never a
   fabricated pass.
+- The optional **local OpenCV face provider** performs genuine YuNet+SFace matching. It stores only an
+  encrypted 128-D template (Fernet/HKDF), never a raw image. Enrollment requires explicit consent and
+  supports deletion; the template is never returned by an API or exposed to administrators.
 - Provider tokens are read from the environment and never returned by the API.
 - AttendX stores verification metadata (status, optional score, provider, model version) and small
   location details, not image bytes.
 - Provider responses are treated as untrusted: only explicit PASSED/FAILED with bounded score is
   consumed; malformed responses become unavailable.
+- **Face matching is not liveness.** Without a configured liveness provider, presentation/replay
+  attacks are a residual risk and affected sessions should not rely on face alone.
 
 ## 7. Application hardening
 
@@ -83,7 +88,7 @@ profile ownership). Admin endpoints do not expose password hashes or raw biometr
 ## 8. Logging and audit
 
 - Audit: provisioning, class/subject/room creation, assignments, enrolments, session create/open/
-  close/PIN regeneration, review resolution, corrections, report export.
+  close/PIN regeneration, face enrollment/deletion, review resolution, corrections, report export.
 - Security events: unknown-email login, failed login, lockout, blocked inactive login, PIN failure,
   rejected attendance.
 - Never logged: passwords, session tokens, PIN values, provider tokens, raw images.
@@ -93,7 +98,8 @@ profile ownership). Admin endpoints do not expose password hashes or raw biometr
 
 ### Data collected
 Account identity and academic profile; attendance attempts/records; a single location fix per check-in
-when permission is granted; optional provider verification outcomes; audit/security metadata.
+when permission is granted; optional encrypted face template and verification outcomes; audit/security
+metadata.
 
 ### Not collected by default
 Continuous location tracking; raw face galleries; background camera; microphone; unnecessary device
@@ -109,8 +115,8 @@ Protection Act, 2023 and applicable institutional policy. AttendX makes no claim
 - Location evidence is tied to the attempt for review; `EVIDENCE_RETENTION_DAYS` (default 180) is
   configured but automated deletion is not included in this build.
 - Session/auth/audit retention must be set institutionally.
-- Biometric provider-side retention/deletion is an integration responsibility; the API supports a
-  deleted status and consent records.
+- Biometric provider-side retention/deletion is an integration responsibility. Local templates are
+  encrypted and deletion clears the ciphertext; consent records remain for audit.
 
 ### Access
 - Students see only their own records.
@@ -129,9 +135,10 @@ Protection Act, 2023 and applicable institutional policy. AttendX makes no claim
 5. No password recovery flow; administrators reset passwords.
 6. No CSRF-protected file-upload streaming limits beyond 2 MB CSV/5 MB image; large-body DoS controls
    belong at the ingress.
-7. Face/liveness accuracy, spoof resistance and fairness are provider-dependent and have **not** been
-   evaluated here; thresholds are not calibrated.
+7. Local face matching uses SFace but **is not liveness**. Presentation/replay spoofing is not
+   detected without a separate configured liveness provider; accuracy/fairness are unevaluated and
+   thresholds are not calibrated.
 8. Browser GPS and camera inputs are not tamper-proof against a modified client.
 9. OpenAPI docs are enabled by default; restrict them at the ingress for production.
-10. SQLite is used for development/tests only; production must run PostgreSQL with backups and
-    connection limits.
+10. SQLite remains the local profile; the full suite and migrations were verified on PostgreSQL 16.2,
+    but production pruning/backups/concurrency limits must still be configured.

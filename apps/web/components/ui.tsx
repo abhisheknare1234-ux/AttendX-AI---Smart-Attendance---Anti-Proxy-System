@@ -78,13 +78,16 @@ export function Card({
   children,
   className,
   as: Element = "div",
+  ...rest
 }: {
   children: ReactNode;
   className?: string;
   as?: "div" | "section" | "article";
+  "data-testid"?: string;
 }) {
   return (
     <Element
+      {...rest}
       className={cn(
         "rounded-[var(--radius-card)] border border-line bg-white shadow-[0_1px_2px_rgba(16,24,40,0.03)]",
         className,
@@ -354,12 +357,14 @@ export function StatCard({
   hint,
   icon,
   tone = "blue",
+  testId,
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
   icon?: ReactNode;
   tone?: "blue" | "green" | "amber" | "red" | "purple";
+  testId?: string;
 }) {
   const tones = {
     blue: "bg-[#EDF4FF] text-brand",
@@ -369,7 +374,7 @@ export function StatCard({
     purple: "bg-[#F4F3FF] text-[#5925DC]",
   };
   return (
-    <Card className="p-4">
+    <Card className="p-4" data-testid={testId}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium text-muted">{label}</p>

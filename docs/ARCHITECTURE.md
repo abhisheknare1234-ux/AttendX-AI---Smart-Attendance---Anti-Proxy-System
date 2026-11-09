@@ -30,7 +30,8 @@ pilot scale does not justify them, and fewer moving parts make security review a
 │                    attendance flow · reports · health                      │
 │  Services          auth · attendance · geofence · risk · reviews ·         │
 │                    reports · CSV import · audit · users                    │
-│  Providers         face (none/http) · liveness (none/http)                 │
+│  Providers         face (none/http/local OpenCV YuNet+SFace) · liveness (none/http) │
+│  Biometrics        encrypted local templates · consent · deletion                   │
 │  Models            identity · academic · attendance · operations           │
 └───────────────────────────────────┬────────────────────────────────────────┘
                                     │ SQLAlchemy 2.0
@@ -93,7 +94,7 @@ session is still open. Finalization is the only place an official attendance rec
 | Sync SQLAlchemy | Straightforward transactional logic and tests; FastAPI runs endpoints in a threadpool | Not suited to very high concurrency without tuning |
 | Next rewrite for `/api` | Same-origin cookies, no browser CORS complexity, one origin for QR links | Backend sees the proxy address unless forwarded headers are configured |
 | Polling (2 s) for live view | Reliable on institutional networks; no socket infrastructure | Slightly higher request rate; not instant |
-| Provider abstraction for face/liveness | Institution chooses an approved provider; avoids faking a model | Requires procurement/configuration before those factors work |
+| Provider abstraction for face/liveness | Institution chooses local OpenCV matching or an approved provider; avoids faking a model | Local face needs model installation; liveness remains external |
 | `UNAVAILABLE` routes to review | Missing evidence is not proof of cheating | More teacher review work when providers are down |
 | SQLite for dev/test only | The development host has no Docker/PostgreSQL | Developer/production parity risk; mitigated by Alembic targeting PostgreSQL |
 | Hash-only PIN storage + show-on-generation | Strong at-rest protection | Teacher must regenerate the PIN to display it after a page reload |

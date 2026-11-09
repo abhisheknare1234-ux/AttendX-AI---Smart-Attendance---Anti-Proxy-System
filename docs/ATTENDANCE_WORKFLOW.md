@@ -75,9 +75,12 @@ track students. Browser GPS is not tamper-proof; it is evidence, not proof of cl
 Both are **separate** provider contracts:
 
 - Face verification requires an authorized `biometric_enrollments` row with consent and an active
-  status. If no provider is configured or the request has no image, the result is `UNAVAILABLE` with
-  a precise reason code.
+  status. The optional local OpenCV provider matches a YuNet+SFace 128-D embedding against the
+  decrypted enrolled template (cosine threshold 0.363). If no provider is configured, the student
+  has no image/enrollment, or the capture is unusable, the result is `UNAVAILABLE` with a precise
+  reason code. A detected face below threshold is `FAILED` (`FACE_MISMATCH`).
 - Liveness calls its own provider; simple blink/head-turn prompts are not claimed as replay-proof.
+  No liveness provider is configured by default.
 - The HTTP adapter sends one image and expects
   `{status: PASSED|FAILED, score?: 0..1, reason_code?, provider?, model_version?}`. Network failures
   become `UNAVAILABLE`, malformed responses become `UNAVAILABLE`, and no score is invented.

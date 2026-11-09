@@ -34,12 +34,17 @@ from app.models import (
 from app.services.auth import bootstrap_admin
 from app.services.users import provision_student, provision_teacher
 
-engine = create_engine(
-    "sqlite://",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-    future=True,
-)
+POSTGRES_TEST_URL = os.environ.get("TEST_DATABASE_URL", "").strip()
+if POSTGRES_TEST_URL:
+    # The same suite can run against real PostgreSQL in CI/staging.
+    engine = create_engine(POSTGRES_TEST_URL, future=True, pool_pre_ping=True)
+else:
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        future=True,
+    )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False, future=True)
 Base.metadata.create_all(engine)
 
