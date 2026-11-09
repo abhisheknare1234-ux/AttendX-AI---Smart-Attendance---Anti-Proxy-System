@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: attendx
+      POSTGRES_USER: attendx
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U attendx -d attendx"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./apps/api
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: postgresql+psycopg://attendx:${POSTGRES_PASSWORD}@db:5432/attendx
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
+      QR_SIGNING_KEY: ${QR_SIGNING_KEY:-}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      FACE_PROVIDER: ${FACE_PROVIDER:-none}
+      FACE_HTTP_URL: ${FACE_HTTP_URL:-}
+      FACE_HTTP_TOKEN: ${FACE_HTTP_TOKEN:-}
+      LIVENESS_PROVIDER: ${LIVENESS_PROVIDER:-none}
+      LIVENESS_HTTP_URL: ${LIVENESS_HTTP_URL:-}
+      LIVENESS_HTTP_TOKEN: ${LIVENESS_HTTP_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        API_INTERNAL_URL: http://api:8000
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
