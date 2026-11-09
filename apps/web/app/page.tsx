@@ -52,8 +52,8 @@ const verificationFactors = [
   {
     icon: Fingerprint,
     title: "Liveness detection",
-    body: "Separate from face matching, with PASSED, FAILED, UNAVAILABLE and ERROR states. A blink animation is not marketed as replay-proof liveness.",
-    status: "Provider required",
+    body: "Optional local MiniFASNet single-frame anti-spoofing or an external provider. Spoof-like captures are FAILED; unavailable checks are recorded honestly. Not a challenge-response guarantee.",
+    status: "Implemented (local)",
   },
   {
     icon: ShieldAlert,
@@ -76,7 +76,8 @@ const implemented = [
 ];
 
 const pilotOnly = [
-  "Liveness still requires an institution-approved provider; face matching alone is not liveness",
+  "Local liveness is a single-frame anti-spoof check, not proof of a live person or a challenge-response guarantee",
+  "Face/liveness accuracy and fairness require institutional evaluation; no claims are made here",
   "Local face templates require model installation, supervised enrollment and a DPIA",
   "BLUETOOTH presence monitoring is designed in the data model but not captured in this build",
   "Real biometric processing needs consent, a DPIA and legal review",
@@ -230,8 +231,8 @@ export default function LandingPage() {
             <span className="rounded-full border border-[#ABEFC6] bg-[#ECFDF3] px-2.5 py-1 font-semibold text-[#067647]">
               Core attendance flow implemented
             </span>
-            <span className="rounded-full border border-[#FEDF89] bg-[#FFFAEB] px-2.5 py-1 font-semibold text-[#B54708]">
-              Liveness: provider configuration required
+            <span className="rounded-full border border-[#ABEFC6] bg-[#ECFDF3] px-2.5 py-1 font-semibold text-[#067647]">
+              Face + local liveness implemented
             </span>
             <span className="rounded-full border border-line bg-white px-2.5 py-1 font-semibold text-muted">
               BLE presence: future integration

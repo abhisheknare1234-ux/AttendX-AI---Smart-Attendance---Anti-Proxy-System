@@ -10,9 +10,10 @@ AttendX does not fabricate biometric results. Face verification has three deploy
 | `http` | Calls an institution-approved external service implementing the documented contract |
 | `local_opencv` | Runs genuine local matching with OpenCV Zoo YuNet + SFace models |
 
-Liveness is always a separate contract (`LIVENESS_PROVIDER=none|http`). **A face match is not
-liveness detection.** No local liveness implementation is included; with no liveness provider the
-factor is reported `UNAVAILABLE` and review policy applies.
+Liveness is always a separate contract (`LIVENESS_PROVIDER=none|http|local_minifas`). **A face match
+is not liveness detection.** The optional local MiniFASNet single-frame anti-spoof classifier is
+documented in [LIVENESS.md](LIVENESS.md); with no liveness provider the factor is `UNAVAILABLE` and
+review policy applies.
 
 ## 2. Local matching pipeline
 

@@ -25,14 +25,18 @@ not a legal opinion. Review each project's current licence and notices before di
 | cryptography | Apache-2.0 / BSD-3-Clause | Fernet encryption for face templates |
 | OpenCV (opencv-python-headless) | Apache-2.0 | Image decode, YuNet detector, SFace recognizer |
 | NumPy | BSD-3-Clause | Embedding math |
+| onnxruntime | MIT | Executes the local MiniFASNet liveness classifier |
+| MiniFASNet-V2 ONNX | Apache-2.0 | Local liveness/anti-spoofing model |
 | pytest / pytest-cov / httpx | MIT / MIT / BSD-3-Clause | Development and testing |
 | Playwright | Apache-2.0 | Browser end-to-end tests (development) |
 
 ## Face models
 
-- `face_detection_yunet_2023mar.onnx` and `face_recognition_sface_2021dec.onnx` are downloaded from
-  the OpenCV Model Zoo by `app/scripts/download_face_models.py` with pinned SHA-256 hashes. They are
-  **not committed**. Review the OpenCV Zoo model-specific licences/terms before institutional use.
+- `face_detection_yunet_2023mar.onnx`, `face_recognition_sface_2021dec.onnx` and `minifas_128.onnx`
+  are downloaded by `app/scripts/download_face_models.py` with pinned SHA-256 hashes. They are **not
+  committed**. MiniFASNet originates from minivision-ai/Silent-Face-Anti-Spoofing and is redistributed
+  in ONNX form by facenox/face-antispoof-onnx under Apache-2.0; review model-specific terms before
+  institutional use.
 - No biometric evaluation dataset is included. Local sanity images used during development were not
   committed.
 

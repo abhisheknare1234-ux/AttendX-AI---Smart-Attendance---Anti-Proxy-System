@@ -87,15 +87,17 @@ export default function AdminVerificationPage() {
                   ) : (
                     <p className="flex items-start gap-2">
                       <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[#12855A]" />
-                      A liveness provider is configured. Its PASSED/FAILED result is recorded
-                      separately from face matching.
+                      {health.data.liveness_provider === "local_minifas"
+                        ? "Local MiniFASNet single-frame anti-spoofing is configured. It detects print/screen-like texture, but it is not a challenge-response protocol and does not prove a live person is present."
+                        : "An external liveness provider is configured. Its PASSED/FAILED result is recorded separately from face matching."}
                     </p>
                   )}
                 </div>
                 <div className="text-xs text-muted">
-                  Configure through <code className="rounded bg-workspace px-1">LIVENESS_PROVIDER</code>,{" "}
-                  <code className="rounded bg-workspace px-1">LIVENESS_HTTP_URL</code> and{" "}
-                  <code className="rounded bg-workspace px-1">LIVENESS_HTTP_TOKEN</code>.
+                  Configure through <code className="rounded bg-workspace px-1">LIVENESS_PROVIDER</code>{" "}
+                  (<code>none</code>, <code>http</code> or <code>local_minifas</code>),{" "}
+                  <code className="rounded bg-workspace px-1">LIVENESS_MODEL_DIR</code> or the HTTP
+                  URL/token variables.
                 </div>
               </div>
             </Card>

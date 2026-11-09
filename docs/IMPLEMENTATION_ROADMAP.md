@@ -60,12 +60,16 @@ Status legend: **Done**, **Partial**, **Not started**.
 - External HTTP provider adapter retained.
 - **Next:** evaluated accuracy/fairness dataset, supervised enrollment, liveness integration.
 
-## Phase 8 — Liveness and risk engine — Partial (risk done; liveness provider required)
+## Phase 8 — Liveness and risk engine — Done (local anti-spoof optional; evaluation pending)
 
-- Separate liveness provider contract and status handling; no liveness provider by default.
+- Separate liveness provider contract with `none`, external HTTP and local MiniFASNet single-frame
+  anti-spoofing.
+- Encrypted face template + liveness decisions recorded independently; spoof → `FAILED`, unavailable
+  quality → review.
 - Deterministic risk engine with reason codes, factor states, score points.
 - Teacher review queue, student requests and corrections.
-- **Next:** provider evaluation and integration; concurrency tests.
+- **Next:** independent evaluation on real presentation attacks, temporal/challenge-response
+  enhancement, and institutional threshold calibration.
 
 ## Phase 9 — Presence monitoring — Not implemented (schema only)
 

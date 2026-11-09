@@ -1,10 +1,12 @@
-"""Download OpenCV Zoo face models for the local face provider.
+"""Download OpenCV/ONNX models for the local face and liveness providers.
 
 Usage (from apps/api):
     python -m app.scripts.download_face_models
     python -m app.scripts.download_face_models --dir C:\\models
 
 Models are not committed to the repository. This script verifies SHA-256 hashes.
+The liveness model is the Apache-2.0 MiniFASNet-V2 classifier redistributed by the
+facenox/face-antispoof-onnx project; review its licence/attribution before use.
 """
 from __future__ import annotations
 
@@ -26,6 +28,11 @@ MODELS = {
         "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/"
         "face_recognition_sface_2021dec.onnx",
         "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79",
+    ),
+    "minifas_128.onnx": (
+        "https://raw.githubusercontent.com/facenox/face-antispoof-onnx/main/models/"
+        "best_model_quantized.onnx",
+        "fde20585635cae62ed1d41796f76b6f8bc4b92cd91ec1cf0f1bc6485d2d587a9",
     ),
 }
 

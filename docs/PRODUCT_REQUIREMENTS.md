@@ -73,7 +73,7 @@ timetable optimization, continuous location tracking, automatic disciplinary act
 | PIN submission with attempt limit and rate limit | Implemented |
 | Location evidence with explicit statuses (`INSIDE_GEOFENCE`, `OUTSIDE_GEOFENCE`, `LOW_ACCURACY`, `PERMISSION_DENIED`, `UNAVAILABLE`, `STALE`) | Implemented |
 | Face verification | Implemented: local YuNet+SFace with encrypted templates and consent; external HTTP provider optional. Unconfigured = `UNAVAILABLE` |
-| Liveness detection | Separate provider contract implemented; no liveness provider configured by default, reported `UNAVAILABLE` |
+| Liveness detection | Implemented as optional local MiniFASNet single-frame anti-spoofing or external HTTP provider; `none` by default, reported `UNAVAILABLE`. Not a challenge-response guarantee |
 | Duplicate attendance prevention | Implemented with a database unique constraint |
 | Final result with reference for accepted attendance | Implemented |
 

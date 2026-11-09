@@ -16,8 +16,8 @@ complete prevention of collusion.
 | 5 | Duplicate requests | Double-click/submit or concurrent finalize creates two records | Inflated attendance | Unique `(session_id, student_id)`; idempotent finalize; existing-record check at check-in | `test_full_verified_flow_and_duplicate_prevention`, `test_pin_attempt_limit…` duplicate check | None at the database level for the same session/student |
 | 6 | GPS spoofing | Modified client or developer tools reports classroom coordinates | False location evidence | Server-side distance/accuracy/staleness; GPS is evidence, not proof; review policy; optional identity checks | `test_geofence_risk.py` (inside/outside/low-accuracy/stale/permission) | Browser geolocation cannot be trusted against a tampered OS/browser; treat as a signal |
 | 7 | Face-photo attack | Student holds a printed photo or screen to the camera | Identity bypass | Local SFace matching is genuine but is **not** anti-spoofing; configure a liveness provider. Unavailable liveness → review | `test_biometrics.py` (pipeline/consent); local check same 0.9479 / different 0.1217 | A photo/screen may pass face matching without liveness; no presentation-attack model is bundled |
-| 8 | Video replay | Pre-recorded video played to the camera | Identity/liveness bypass | Liveness is a separate provider contract; pass/fail recorded honestly; face alone is not liveness | No liveness provider configured → `UNAVAILABLE` | Provider must be evaluated against its own video-replay threat model |
-| 9 | Liveness bypass | Simple blink/head-turn expected to defeat replay | False sense of security | Product does not implement or market a naive liveness method; unconfigured = `UNAVAILABLE` | Risk engine treats unavailable as review, not passed | Real liveness quality is unverified without an approved provider |
+| 8 | Video replay | Pre-recorded video played to the camera | Identity/liveness bypass | Separate liveness provider; optional local MiniFASNet single-frame anti-spoofing; PASSED/FAILED recorded honestly; face alone is not liveness | `test_liveness.py`, `live_liveness_check.py` real PASSED / synthetic spoof FAILED | Single-frame model can be defeated by sophisticated replay; not challenge-response |
+| 9 | Liveness bypass | Simple blink/head-turn expected to defeat replay | False sense of security | Product does not implement or market a naive challenge; optional MiniFASNet texture classifier; unconfigured = `UNAVAILABLE` | Liveness tests and live check | Real anti-spoof accuracy is unverified; provider should be evaluated before high-stakes use |
 | 10 | Unauthorized access | Student/teacher accesses another role's endpoints or records | Data disclosure/modification | Session auth, role checks, ownership checks, enum-scoped queries, CSRF | `test_auth.py::test_student_cannot_access_admin`, `test_teacher_cannot_access_another_teachers_session` | Missing tests for every endpoint combination; review new routes carefully |
 | 11 | Privilege escalation | User tries to register/assign a privileged role | Admin takeover | No registration endpoint; admin-only role creation; admin creation endpoint restricted to admins; no role change via PATCH | No registration route exists; CSRF/RBAC tests | A compromised admin session is game over; strong admin MFA is future work |
 | 12 | Biometric data exposure | Admin or attacker reads face templates/images | Privacy harm | Only an encrypted 128-D template is stored; raw images are not persisted; admin APIs never return templates; deletion supported | `test_biometrics.py` roundtrip/tamper and encrypted-at-rest assertion | Application process can decrypt templates by design; database/app access must be controlled |
@@ -31,9 +31,10 @@ complete prevention of collusion.
 ## Highest-priority residual risks
 
 1. **Collusion in the same room** with identity factors disabled.
-2. **No liveness provider is configured**, so face-photo/screen replay against local face matching is
-   a real residual risk. Face match must not be treated as anti-spoofing.
-3. **Face accuracy/fairness is unevaluated**; the local SFace sanity check is not an accuracy study.
+2. **Local liveness is single-frame anti-spoofing**, not a challenge-response protocol; sophisticated
+   replay/3D/deepfake attacks remain possible and accuracy is unevaluated.
+3. **Face and liveness accuracy/fairness are unevaluated**; the local checks are pipeline sanity
+   tests, not evaluation studies.
 4. **Proxy IP visibility** affecting rate limiting when the API sits behind the Next rewrite.
 5. **No institutional DPIA/consent** yet; biometric processing must not begin without it.
 6. **No automated retention/deletion** for evidence and audit data.

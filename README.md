@@ -10,9 +10,9 @@ backend decision — with a teacher review path when evidence is missing or bord
 > **Build status:** a functional pilot-ready technical build, verified locally on SQLite and real
 > PostgreSQL, with browser end-to-end tests. It is **not** a live campus deployment, not a complete
 > college ERP, and it makes no claim of perfect proxy prevention or perfect biometric accuracy.
-> Genuine local face matching is implemented with encrypted templates; it is **not** liveness.
-> Liveness requires an institution-approved provider and is reported honestly as `UNAVAILABLE`
-> when unconfigured.
+> Genuine local face matching is implemented with encrypted templates; an optional local MiniFASNet
+> single-frame anti-spoof check is also available. Neither is a guarantee of liveness or perfect
+> biometric accuracy.
 
 ## What is implemented and verified
 
@@ -33,8 +33,8 @@ backend decision — with a teacher review path when evidence is missing or bord
 | Reports, student history, subject summaries and CSV export | Implemented and tested |
 | Audit and security event trails | Implemented |
 | Face verification | Genuine local YuNet+SFace matching with consent, encrypted templates, deletion; external HTTP provider optional. `none` by default. Tested for enrollment/match/crypto |
-| Liveness detection | Separate provider contract; **no liveness provider configured by default**, reported `UNAVAILABLE`. A face match is not liveness |
-| PostgreSQL deployment path | Full 42-test suite executed against PostgreSQL 16.2; Alembic baseline + biometric migration applied |
+| Liveness detection | Optional genuine local MiniFASNet single-frame anti-spoofing (ONNX Runtime) or external HTTP provider; `none` by default. Spoof-like captures → `FAILED`; unavailable/quality issues → `UNAVAILABLE`. Not a challenge-response guarantee |
+| PostgreSQL deployment path | Full 45-test suite executed against PostgreSQL 16.2; Alembic baseline + biometric migration applied |
 | BLE presence monitoring | Schema/model only; not captured in this build |
 | Uniform detection | Not implemented (optional research feature) |
 | Scheduled automated backup job | Not included; documented operational requirement |
@@ -86,7 +86,7 @@ attendx-ai/
         providers/       # face and liveness provider contracts
         scripts/         # bootstrap_admin, seed_dev
       alembic/           # baseline migration
-      tests/             # 42 pytest tests (SQLite and PostgreSQL)
+      tests/             # 45 pytest tests (SQLite and PostgreSQL)
     web/
       app/               # landing, login, admin, teacher, student, attend flow, account
       components/        # design system, shell, scanner, QR, check-in flow
@@ -150,7 +150,7 @@ pytest -q
 
 Verified in this build:
 
-- **42 pytest tests passed** against isolated SQLite and, separately, against **real PostgreSQL
+- **45 pytest tests passed** against isolated SQLite and, separately, against **real PostgreSQL
   16.2** with the same suite.
 - **Alembic baseline + encrypted-face-template migration applied to PostgreSQL** (revision
   `7891b2a61c2a`, 26 tables including `alembic_version`).
@@ -167,8 +167,11 @@ Verified in this build:
 - **Local face provider validated end-to-end**: consent enrollment stored an encrypted 128-D
   template; a genuine reflected probe scored **0.947853 → PASSED** and finalized **ACCEPTED**; an
   impostor scored **0.121694 → FAILED** and finalized **REJECTED**; deletion cleared the template.
-  These are pipeline sanity checks, not an accuracy evaluation. See
-  [docs/FACE_VERIFICATION.md](docs/FACE_VERIFICATION.md).
+- **Local liveness provider validated end-to-end**: a real portrait scored **0.956488 → PASSED** and
+  was **ACCEPTED**; a print-like grayscale spoof transform scored **0.354040 → FAILED** and was
+  **REJECTED** with `LIVENESS_FAILED`. This is a pipeline sanity check with a synthetic spoof, not an
+  accuracy evaluation. See [docs/FACE_VERIFICATION.md](docs/FACE_VERIFICATION.md) and
+  [docs/LIVENESS.md](docs/LIVENESS.md).
 
 Run the browser suite with the API and web servers running (web on `127.0.0.1:3000` and API
 `WEB_ORIGIN` matching it):
@@ -216,7 +219,8 @@ python -m app.scripts.download_face_models --dir /app/models
 - Role and resource checks on every teacher/student/admin endpoint.
 - Signed, expiring, session-bound QR tokens; PIN hashed and invalidated on close.
 - Optional local face templates are encrypted at rest (Fernet/HKDF), consent-gated, deletable and
-  never returned by an API. Raw images are not persisted. Face matching is not liveness.
+  never returned by an API. Raw images are not persisted. Liveness is a separate factor; the local
+  MiniFASNet check is single-frame anti-spoofing, not proof of a live person.
 - No raw face images or biometric templates are stored by the core attendance record.
 - Audit trail for provisioning, sessions, reviews, corrections, face enrollment/deletion and exports;
   security events for failed logins, lockouts, PIN failures and rejected attendance.
@@ -235,6 +239,7 @@ See [docs/SECURITY_AND_PRIVACY.md](docs/SECURITY_AND_PRIVACY.md) and
 - [Dual UI architecture](docs/DUAL_UI_ARCHITECTURE.md)
 - [Attendance workflow](docs/ATTENDANCE_WORKFLOW.md)
 - [Face verification and liveness](docs/FACE_VERIFICATION.md)
+- [Liveness and anti-spoofing](docs/LIVENESS.md)
 - [Security and privacy](docs/SECURITY_AND_PRIVACY.md)
 - [Threat model](docs/THREAT_MODEL.md)
 - [Reference project analysis](docs/REFERENCE_PROJECT_ANALYSIS.md)

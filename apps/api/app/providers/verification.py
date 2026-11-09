@@ -390,6 +390,235 @@ class LocalOpenCvFaceProvider:
         )
 
 
+_QUALITY_LIVENESS_REASONS = {
+    "LIVENESS_DECODE_FAILED",
+    "LIVENESS_IMAGE_TOO_SMALL",
+    "LIVENESS_NOT_DETECTED",
+    "LIVENESS_MULTIPLE_FACES",
+    "LIVENESS_LOW_QUALITY",
+}
+
+
+class LocalMiniFasLivenessProvider:
+    """Single-frame passive anti-spoofing with MiniFASNet (Apache-2.0).
+
+    The model is a binary Real/Spoof classifier over a padded 128x128 RGB crop.
+    It is genuine texture-based anti-spoofing, not proof of a live person and not
+    a challenge-response protocol. A no-face/poor capture is UNAVAILABLE; a
+    detected face classified as spoof is FAILED; only a detected real face is
+    PASSED. Raw images are never persisted.
+    """
+
+    name = "local_minifas"
+    model_version = "minifas-128"
+
+    def __init__(
+        self,
+        model_dir: str,
+        detector_model_dir: str,
+        threshold: float,
+        detection_threshold: float,
+    ) -> None:
+        self._model_dir = Path(model_dir)
+        self._detector_dir = Path(detector_model_dir)
+        self._threshold = threshold
+        self._detection_threshold = detection_threshold
+        self._lock = threading.Lock()
+        self._infer_lock = threading.Lock()
+        self._session = None
+        self._detector = None
+        self._input_name: str | None = None
+        self._loaded = False
+        self._load_error: str | None = None
+
+    @property
+    def model_path(self) -> Path:
+        return self._model_dir / "minifas_128.onnx"
+
+    @property
+    def detector_path(self) -> Path:
+        candidate = self._detector_dir / "face_detection_yunet_2023mar.onnx"
+        if candidate.is_file():
+            return candidate
+        return self._model_dir / "face_detection_yunet_2023mar.onnx"
+
+    @property
+    def configured(self) -> bool:
+        return self.model_path.is_file() and self.detector_path.is_file()
+
+    def _ensure_models(self) -> bool:
+        if self._loaded:
+            return True
+        with self._lock:
+            if self._loaded:
+                return True
+            if not self.configured:
+                self._load_error = "model files are missing"
+                return False
+            try:
+                import cv2  # noqa: PLC0415
+                import onnxruntime as ort  # noqa: PLC0415
+            except ImportError as exc:
+                self._load_error = f"missing dependency: {exc.name}"
+                return False
+            try:
+                session = ort.InferenceSession(
+                    str(self.model_path), providers=["CPUExecutionProvider"]
+                )
+                self._detector = cv2.FaceDetectorYN.create(
+                    str(self.detector_path), "", (320, 320), self._detection_threshold, 0.3, 5000
+                )
+                self._session = session
+                self._input_name = session.get_inputs()[0].name
+            except Exception as exc:  # noqa: BLE001 - model boundary
+                self._load_error = exc.__class__.__name__
+                return False
+            self._loaded = True
+            return True
+
+    def _crop(self, image, bbox):  # noqa: ANN001
+        import cv2  # noqa: PLC0415
+
+        height, width = image.shape[:2]
+        x, y, box_w, box_h = bbox
+        longest = max(box_w, box_h)
+        center_x, center_y = x + box_w / 2, y + box_h / 2
+        size = max(1, int(longest * 1.5))
+        x1, y1 = int(center_x - size / 2), int(center_y - size / 2)
+        x2, y2 = x1 + size, y1 + size
+        part = image[max(0, y1) : min(height, y2), max(0, x1) : min(width, x2)]
+        return cv2.copyMakeBorder(
+            part,
+            max(0, -y1),
+            max(0, y2 - height),
+            max(0, -x1),
+            max(0, x2 - width),
+            cv2.BORDER_REFLECT_101,
+        )
+
+    def _letterbox(self, image, size: int = 128):  # noqa: ANN001
+        import cv2  # noqa: PLC0415
+
+        height, width = image.shape[:2]
+        ratio = float(size) / max(height, width)
+        new_w, new_h = max(1, int(width * ratio)), max(1, int(height * ratio))
+        interpolation = cv2.INTER_LANCZOS4 if ratio > 1.0 else cv2.INTER_AREA
+        resized = cv2.resize(image, (new_w, new_h), interpolation=interpolation)
+        delta_w, delta_h = size - new_w, size - new_h
+        return cv2.copyMakeBorder(
+            resized,
+            delta_h // 2,
+            delta_h - delta_h // 2,
+            delta_w // 2,
+            delta_w - delta_w // 2,
+            cv2.BORDER_REFLECT_101,
+        )
+
+    def _classify(self, image: bytes) -> tuple[float | None, float | None, str | None, dict]:
+        try:
+            import cv2  # noqa: PLC0415
+            import numpy as np  # noqa: PLC0415
+        except ImportError:
+            return None, None, "LIVENESS_ENGINE_UNAVAILABLE", {}
+        decoded = cv2.imdecode(np.frombuffer(image, dtype=np.uint8), cv2.IMREAD_COLOR)
+        if decoded is None:
+            return None, None, "LIVENESS_DECODE_FAILED", {}
+        height, width = decoded.shape[:2]
+        if min(height, width) < 160:
+            return None, None, "LIVENESS_IMAGE_TOO_SMALL", {"width": width, "height": height}
+        rgb = cv2.cvtColor(decoded, cv2.COLOR_BGR2RGB)
+        detector = self._detector
+        detector.setInputSize((width, height))
+        _, faces = detector.detect(rgb)
+        if faces is None or len(faces) == 0:
+            return None, None, "LIVENESS_NOT_DETECTED", {}
+        if len(faces) > 1:
+            return None, None, "LIVENESS_MULTIPLE_FACES", {"faces": int(len(faces))}
+        quality = float(faces[0][-1])
+        if quality < self._detection_threshold:
+            return None, quality, "LIVENESS_LOW_QUALITY", {"detection_score": round(quality, 4)}
+        crop = self._letterbox(self._crop(rgb, faces[0][:4]))
+        blob = (crop.transpose(2, 0, 1).astype(np.float32) / 255.0)[None]
+        try:
+            logits = self._session.run(None, {self._input_name: blob})[0][0]
+        except Exception:  # noqa: BLE001 - model boundary
+            return None, quality, "LIVENESS_ENGINE_UNAVAILABLE", {}
+        real_logit, spoof_logit = float(logits[0]), float(logits[1])
+        diff = real_logit - spoof_logit
+        score = 1.0 / (1.0 + np.exp(-diff))
+        passed = diff >= self._threshold
+        return (
+            float(score),
+            quality,
+            "LIVENESS_PASSED" if passed else "LIVENESS_SPOOF_DETECTED",
+            {
+                "real_logit": round(real_logit, 6),
+                "spoof_logit": round(spoof_logit, 6),
+                "logit_diff": round(diff, 6),
+                "threshold": self._threshold,
+                "detection_score": round(quality, 4),
+            },
+        )
+
+    def check(self, *, image: bytes, content_type: str) -> VerificationResult:
+        if not image:
+            return VerificationResult(
+                status=FactorStatus.UNAVAILABLE,
+                reason_code="LIVENESS_IMAGE_MISSING",
+                provider=self.name,
+                model_version=self.model_version,
+            )
+        if len(image) > 5 * 1024 * 1024:
+            return VerificationResult(
+                status=FactorStatus.UNAVAILABLE,
+                reason_code="LIVENESS_IMAGE_TOO_LARGE",
+                provider=self.name,
+                model_version=self.model_version,
+            )
+        if not self.configured:
+            return VerificationResult(
+                status=FactorStatus.UNAVAILABLE,
+                reason_code="LOCAL_LIVENESS_MODELS_MISSING",
+                provider=self.name,
+                model_version=self.model_version,
+                details={"model_dir": str(self._model_dir)},
+            )
+        if not self._ensure_models():
+            return VerificationResult(
+                status=FactorStatus.UNAVAILABLE,
+                reason_code="LOCAL_LIVENESS_ENGINE_UNAVAILABLE",
+                provider=self.name,
+                model_version=self.model_version,
+                details={"load_error": self._load_error},
+            )
+        with self._infer_lock:
+            score, quality, reason, details = self._classify(image)
+        if reason is None:
+            return VerificationResult(
+                status=FactorStatus.UNAVAILABLE,
+                reason_code="LIVENESS_UNKNOWN_RESULT",
+                provider=self.name,
+                model_version=self.model_version,
+            )
+        if reason in _QUALITY_LIVENESS_REASONS:
+            return VerificationResult(
+                status=FactorStatus.UNAVAILABLE,
+                reason_code=reason,
+                provider=self.name,
+                model_version=self.model_version,
+                details=details,
+            )
+        passed = reason == "LIVENESS_PASSED"
+        return VerificationResult(
+            status=FactorStatus.PASSED if passed else FactorStatus.FAILED,
+            score=round(float(score or 0.0), 6),
+            reason_code=reason,
+            provider=self.name,
+            model_version=self.model_version,
+            details={**details, "detection_score": quality},
+        )
+
+
 def _post_verification(
     *,
     url: str,
@@ -499,6 +728,10 @@ def get_face_provider(settings: Settings) -> FaceProvider:
     return UnconfiguredFaceProvider()
 
 
+_LIVENESS_PROVIDERS: dict[tuple[str, str, float, float], LocalMiniFasLivenessProvider] = {}
+_LIVENESS_PROVIDERS_LOCK = threading.Lock()
+
+
 def get_liveness_provider(settings: Settings) -> LivenessProvider:
     if settings.liveness_provider == "http":
         return HttpLivenessProvider(
@@ -506,4 +739,19 @@ def get_liveness_provider(settings: Settings) -> LivenessProvider:
             settings.liveness_http_token,
             settings.liveness_provider_model,
         )
+    if settings.liveness_provider == "local_minifas":
+        key = (
+            str(Path(settings.liveness_model_dir).expanduser().resolve()),
+            str(Path(settings.face_model_dir).expanduser().resolve()),
+            float(settings.liveness_threshold),
+            float(settings.face_detection_threshold),
+        )
+        with _LIVENESS_PROVIDERS_LOCK:
+            provider = _LIVENESS_PROVIDERS.get(key)
+            if provider is None:
+                provider = LocalMiniFasLivenessProvider(
+                    key[0], key[1], key[2], key[3]
+                )
+                _LIVENESS_PROVIDERS[key] = provider
+            return provider
     return UnconfiguredLivenessProvider()

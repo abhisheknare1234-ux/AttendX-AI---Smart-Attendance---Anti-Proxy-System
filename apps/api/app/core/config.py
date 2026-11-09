@@ -81,10 +81,12 @@ class Settings(BaseSettings):
     face_detection_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
     face_template_key: str = ""
 
-    liveness_provider: Literal["none", "http"] = "none"
+    liveness_provider: Literal["none", "http", "local_minifas"] = "none"
     liveness_http_url: str = ""
     liveness_http_token: str = ""
     liveness_provider_model: str = "external-liveness-v1"
+    liveness_model_dir: str = "models"
+    liveness_threshold: float = Field(default=0.0, ge=-20.0, le=20.0)
 
     # --- Bootstrap / development ----------------------------------------
     bootstrap_admin_email: str = ""

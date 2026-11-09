@@ -135,9 +135,9 @@ Protection Act, 2023 and applicable institutional policy. AttendX makes no claim
 5. No password recovery flow; administrators reset passwords.
 6. No CSRF-protected file-upload streaming limits beyond 2 MB CSV/5 MB image; large-body DoS controls
    belong at the ingress.
-7. Local face matching uses SFace but **is not liveness**. Presentation/replay spoofing is not
-   detected without a separate configured liveness provider; accuracy/fairness are unevaluated and
-   thresholds are not calibrated.
+7. Local face matching uses SFace; the optional local liveness provider is single-frame MiniFASNet
+   anti-spoofing, **not a challenge-response guarantee**. It can be fooled by sophisticated
+   presentation attacks; accuracy/fairness are unevaluated and thresholds are not calibrated.
 8. Browser GPS and camera inputs are not tamper-proof against a modified client.
 9. OpenAPI docs are enabled by default; restrict them at the ingress for production.
 10. SQLite remains the local profile; the full suite and migrations were verified on PostgreSQL 16.2,

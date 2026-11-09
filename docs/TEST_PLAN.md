@@ -9,7 +9,7 @@
 | Browser tests | Playwright 1.65.0, Chromium headless, live Next.js + FastAPI servers |
 | Live integration | Uvicorn on `127.0.0.1:8000`, SQLite development database, seeded synthetic demo data |
 | PostgreSQL | PostgreSQL 16.2 embedded test server on `127.0.0.1:5433`; migration DB + full-suite DB |
-| Face models | OpenCV 4.14, YuNet 2023mar, SFace 2021dec; local sanity images not committed |
+| Face/liveness models | OpenCV 4.14, YuNet 2023mar, SFace 2021dec; MiniFASNet-V2 128 (ONNX Runtime 1.23); local sanity images not committed |
 | Not available on the host | Docker; real mobile devices/cameras; production face/liveness evaluation data |
 
 ## 2. Backend automated suite
@@ -21,7 +21,7 @@ cd apps/api
 pytest -q
 ```
 
-**Actual result in this build: 42 passed in ~10 seconds** against SQLite, and **42 passed against
+**Actual result in this build: 45 passed in ~11 seconds** against SQLite, and **45 passed against
 real PostgreSQL 16.2** using the same suite (`TEST_DATABASE_URL`). A Starlette TestClient
 deprecation warning is the only warning.
 
@@ -37,6 +37,7 @@ real models. The other 41 tests do not require model binaries.
 | `test_geofence_risk.py` | Haversine distance, inside/outside, low accuracy, stale, permission denied, unavailable; risk acceptance, outside/review vs reject, GPS missing → review, face unavailable → review, face mismatch → reject, liveness failure → reject, duplicate block, PIN failure, explainable reason shape |
 | `test_reports_import.py` | Report totals/rows after a verified flow, CSV export, teacher class scoping, CSV preview validation, commit, temporary-password login, template |
 | `test_biometrics.py` | Cosine similarity, encrypted template round-trip/tamper, honest missing-model state, consent enforcement, local enrollment/match/deletion when models and images are supplied |
+| `test_liveness.py` | Honest missing-model/unconfigured states; local MiniFASNet real image `PASSED` and print-like synthetic spoof `FAILED` when model/images are supplied |
 | `conftest.py` | Isolated schema reset per seed, test-only academic fixture, CSRF-aware login helper, SQLite/PostgreSQL engine switch |
 
 ### What the suite proves
@@ -56,12 +57,12 @@ real models. The other 41 tests do not require model binaries.
   successfully to a fresh PostgreSQL database.
 - `attendx_migrate` contains 26 tables including `alembic_version`; `biometric_enrollments` has
   `template_ciphertext` and `template_dimension`.
-- The complete 42-test suite passed with `TEST_DATABASE_URL=postgresql+psycopg://…/attendx_test`.
+- The complete 45-test suite passed with `TEST_DATABASE_URL=postgresql+psycopg://…/attendx_test`.
 
 ### What the suite does not prove
 
-- Real face/liveness provider accuracy, fairness or anti-spoof resistance. The local SFace check is
-  a pipeline sanity test with a tiny sample, not an evaluation.
+- Real face/liveness accuracy, fairness or anti-spoof resistance. The local SFace/MiniFAS checks are
+  pipeline sanity tests, not evaluations.
 - Real browser camera/scanner capture on physical devices; browser tests mock geolocation and use
   the session-link path.
 - Load/performance, multi-process rate limiting, ingress/proxy IP forwarding, backup/restore.
@@ -141,6 +142,21 @@ Result: **LIVE_FLOW_PASS**.
 Result: **LIVE_FACE_PASS**. This proves the local embedding/matching pipeline works. It is **not** an
 accuracy evaluation and does not cover liveness or presentation attacks.
 
+### Live liveness flow
+
+`scripts/live_liveness_check.py` with local face + local MiniFASNet liveness:
+
+| Step | Actual result |
+|---|---|
+| Genuine portrait | liveness `PASSED`, score **0.956488**, `LIVENESS_PASSED` |
+| Finalize genuine attempt | `ACCEPTED`, `present` |
+| Print-like grayscale synthetic spoof | liveness `FAILED`, score **0.354040**, `LIVENESS_SPOOF_DETECTED` |
+| Finalize spoof attempt | `REJECTED`, `rejected`, reason `LIVENESS_FAILED` |
+| Enrollment deletion | `deleted` |
+
+Result: **LIVE_LIVENESS_PASS**. The spoof input is synthetic, not a real presentation-attack
+evaluation; the provider is single-frame passive anti-spoofing, not a challenge-response guarantee.
+
 ## 5. Security test checklist status
 
 | Check | Status |
@@ -153,6 +169,7 @@ accuracy evaluation and does not cover liveness or presentation attacks.
 | Face template encryption + deletion | Automated |
 | Face consent enforcement | Automated |
 | Local face match quality (sanity) | Script and service test with real models/images |
+| Local liveness real/spoof (sanity) | Automated test and live HTTP script with real models; synthetic spoof only |
 | Login lockout | Automated |
 | Rate limits | Login/PIN limits exercised indirectly; shared-store limits not tested |
 | Input validation | Pydantic; malformed CSV/email tested; broader fuzzing not run |

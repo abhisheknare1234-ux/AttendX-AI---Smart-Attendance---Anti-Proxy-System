@@ -83,10 +83,11 @@ deployment test, not a guaranteed path.
 - [ ] Set `COOKIE_SECURE=true`; terminate TLS before the web/API.
 - [ ] Configure an approved face/liveness provider or leave it `none` and communicate that sessions
       requiring those factors will go to review.
-- [ ] For local face matching: install the models with
+- [ ] For local face/liveness: install the models with
       `python -m app.scripts.download_face_models --dir /app/models`, set `FACE_PROVIDER=local_opencv`
-      and a strong `FACE_TEMPLATE_KEY`, and back up/rotate that key deliberately. Local face matching
-      is not liveness; configure a liveness provider separately.
+      and/or `LIVENESS_PROVIDER=local_minifas`, configure a strong `FACE_TEMPLATE_KEY`, and back up/
+      rotate that key deliberately. Local liveness is single-frame anti-spoofing, not proof of a live
+      person; evaluate it institutionally before relying on it.
 - [ ] Remove `BOOTSTRAP_ADMIN_EMAIL/PASSWORD` after the first administrator exists.
 - [ ] Disable or restrict `/api/docs` at the ingress if policy requires.
 
