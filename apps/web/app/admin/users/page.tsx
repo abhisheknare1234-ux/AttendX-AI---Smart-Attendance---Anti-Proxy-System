@@ -40,6 +40,8 @@ export default function AdminUsersPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [temporary, setTemporary] = useState<{ email: string; password: string } | null>(null);
+  const [resetInfo, setResetInfo] = useState<{ email: string; url: string; token: string } | null>(null);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
 
   // CSV import state
   const [kind, setKind] = useState<"students" | "teachers">("students");
@@ -89,6 +91,36 @@ export default function AdminUsersPage() {
       await users.reload();
     } catch (caught) {
       setError(errorMessage(caught));
+    }
+  }
+
+  async function issuePasswordReset(user: User) {
+    setActionBusy(`${user.id}:reset`);
+    setError(null);
+    try {
+      const result = await api<{ reset_url: string; token: string }>(
+        `/admin/users/${user.id}/password-reset`,
+        { method: "POST" },
+      );
+      setResetInfo({ email: user.email, url: result.reset_url, token: result.token });
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setActionBusy(null);
+    }
+  }
+
+  async function disableMfa(user: User) {
+    if (!window.confirm(`Disable MFA for ${user.email}? All of their sessions will be revoked.`)) return;
+    setActionBusy(`${user.id}:mfa`);
+    setError(null);
+    try {
+      await api(`/admin/users/${user.id}/mfa-disable`, { method: "POST" });
+      await users.reload();
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setActionBusy(null);
     }
   }
 
@@ -161,6 +193,21 @@ export default function AdminUsersPage() {
           </Alert>
         </div>
       ) : null}
+      {resetInfo ? (
+        <div className="mb-4">
+          <Alert tone="warning" title="Password reset token shown once">
+            <p>
+              Send this single-use link to <strong>{resetInfo.email}</strong> through an approved
+              channel. It expires in 60 minutes and revokes their sessions when used.
+            </p>
+            <p className="mt-2 break-all font-mono text-[11px] text-ink">{resetInfo.url}</p>
+            <p className="mt-1 break-all font-mono text-[10px] text-muted">Token: {resetInfo.token}</p>
+            <button type="button" className="mt-2 font-semibold underline" onClick={() => setResetInfo(null)}>
+              Dismiss
+            </button>
+          </Alert>
+        </div>
+      ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
         <Card>
@@ -202,27 +249,50 @@ export default function AdminUsersPage() {
                           {user.must_change_password ? (
                             <span className="text-[10px] text-[#B54708]">temporary password</span>
                           ) : null}
+                          {user.mfa_enabled ? (
+                            <span className="text-[10px] font-medium text-[#067647]">MFA enabled</span>
+                          ) : null}
                         </div>
                       </Td>
                       <Td className="hidden text-[11px] text-muted sm:table-cell">
                         {formatDateTime(user.last_login_at)}
                       </Td>
                       <Td className="text-right">
-                        <Button
-                          size="sm"
-                          variant={user.status === "active" ? "ghost" : "secondary"}
-                          onClick={() => void toggleStatus(user)}
-                        >
-                          {user.status === "active" ? (
-                            <>
-                              <UserX size={13} /> Disable
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck size={13} /> Enable
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex flex-wrap justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => void issuePasswordReset(user)}
+                            loading={actionBusy === `${user.id}:reset`}
+                          >
+                            Reset password
+                          </Button>
+                          {user.mfa_enabled ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => void disableMfa(user)}
+                              loading={actionBusy === `${user.id}:mfa`}
+                            >
+                              Disable MFA
+                            </Button>
+                          ) : null}
+                          <Button
+                            size="sm"
+                            variant={user.status === "active" ? "ghost" : "secondary"}
+                            onClick={() => void toggleStatus(user)}
+                          >
+                            {user.status === "active" ? (
+                              <>
+                                <UserX size={13} /> Disable
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck size={13} /> Enable
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </Td>
                     </tr>
                   ))}

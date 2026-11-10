@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, enum_column, utcnow, uuid_pk
@@ -22,6 +22,9 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     status: Mapped[UserStatus] = enum_column(UserStatus, default=UserStatus.ACTIVE, index=True)
     must_change_password: Mapped[bool] = mapped_column(default=True)
+    mfa_enabled: Mapped[bool] = mapped_column(default=False)
+    mfa_secret_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mfa_enrolled_at: Mapped[datetime | None] = mapped_column(nullable=True)
     failed_login_count: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(nullable=True)

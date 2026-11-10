@@ -18,7 +18,6 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import get_settings
 from app.core.db import get_db
-from app.core.rate_limit import limiter
 from app.main import app
 from app.models import (
     AttendancePolicy,
@@ -67,13 +66,6 @@ STUDENT_EMAIL = "student1@attendx.dev"
 STUDENT_PASSWORD = "StudentPass!2345"
 STUDENT2_EMAIL = "student2@attendx.dev"
 STUDENT2_PASSWORD = "StudentPass!2345"
-
-
-@pytest.fixture(autouse=True)
-def _reset_limiter():
-    limiter.clear()
-    yield
-    limiter.clear()
 
 
 @pytest.fixture()
@@ -227,7 +219,9 @@ def seeded(db):
         "classroom_id": str(classroom.id),
         "policy_id": str(policy.id),
         "student_id": str(student_profile.id),
+        "student_user_id": str(student.id),
         "student2_id": str(student2_profile.id),
+        "student2_user_id": str(student2.id),
         "student_email": STUDENT_EMAIL,
         "student2_email": STUDENT2_EMAIL,
         "student_password": STUDENT_PASSWORD,

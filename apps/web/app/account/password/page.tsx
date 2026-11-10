@@ -6,6 +6,7 @@ import { KeyRound, ShieldCheck } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { homeForRole, useAuth } from "@/components/auth-provider";
 import { RequireRole } from "@/components/guard";
+import { MfaCard } from "@/components/mfa-card";
 import { Alert, Button, Card, CardHeader, Field, Input, PageHeader } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
 
@@ -23,6 +24,7 @@ function PasswordContent() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -38,7 +40,11 @@ function PasswordContent() {
     try {
       await api("/auth/change-password", {
         method: "POST",
-        body: JSON.stringify({ current_password: current, new_password: next }),
+        body: JSON.stringify({
+          current_password: current,
+          new_password: next,
+          ...(user?.mfa_enabled ? { mfa_code: mfaCode.trim() } : {}),
+        }),
       });
       setDone(true);
       await refresh();
@@ -118,6 +124,17 @@ function PasswordContent() {
                 required
               />
             </Field>
+            {user?.mfa_enabled ? (
+              <Field label="Authenticator code" hint="Required because MFA is enabled." required>
+                <Input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={mfaCode}
+                  onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 10))}
+                  required
+                />
+              </Field>
+            ) : null}
             <Button type="submit" className="w-full" loading={busy} disabled={done}>
               Update password
             </Button>
@@ -128,6 +145,9 @@ function PasswordContent() {
             </p>
           </form>
         </Card>
+        <div className="mt-4">
+          <MfaCard />
+        </div>
       </div>
     </div>
   );

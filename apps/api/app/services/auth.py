@@ -1,14 +1,15 @@
-"""Authentication service: Argon2id verification, lockout, server sessions."""
+"""Authentication service: Argon2id verification, lockout, server sessions, MFA gate."""
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core import errors
 from app.core.config import Settings
-from app.core.rate_limit import limiter
+from app.core.rate_limit import check_rate_limit
 from app.core.security import (
     generate_token,
     hash_password,
@@ -28,12 +29,18 @@ def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
-def _check_login_rate(email: str, ip: str | None, settings: Settings) -> None:
-    email_allowed, email_retry = limiter.hit(
-        f"login:email:{email}", settings.login_max_attempts * 2, settings.login_window_seconds
+def _check_login_rate(db: Session, email: str, ip: str | None, settings: Settings) -> None:
+    email_allowed, email_retry = check_rate_limit(
+        db,
+        key=f"login:email:{email}",
+        limit=settings.login_max_attempts * 2,
+        window_seconds=settings.login_window_seconds,
     )
-    ip_allowed, ip_retry = limiter.hit(
-        f"login:ip:{ip or 'unknown'}", settings.ip_rate_limit_per_minute * 4, settings.login_window_seconds
+    ip_allowed, ip_retry = check_rate_limit(
+        db,
+        key=f"login:ip:{ip or 'unknown'}",
+        limit=settings.ip_rate_limit_per_minute * 4,
+        window_seconds=settings.login_window_seconds,
     )
     if not email_allowed or not ip_allowed:
         raise errors.too_many_requests(
@@ -42,17 +49,17 @@ def _check_login_rate(email: str, ip: str | None, settings: Settings) -> None:
         )
 
 
-def authenticate(
+def verify_credentials(
     db: Session,
     *,
     email: str,
     password: str,
     ip_address: str | None,
-    user_agent: str | None,
     settings: Settings,
-) -> tuple[User, AuthSession, str]:
+) -> User:
+    """Validate email/password/lockout. Does not create a session or complete MFA."""
     email = normalize_email(email)
-    _check_login_rate(email, ip_address, settings)
+    _check_login_rate(db, email, ip_address, settings)
     now = utcnow()
 
     user = db.scalar(select(User).where(func.lower(User.email) == email))
@@ -114,8 +121,21 @@ def authenticate(
 
     user.failed_login_count = 0
     user.locked_until = None
-    user.last_login_at = now
+    db.commit()
+    return user
 
+
+def start_session(
+    db: Session,
+    *,
+    user: User,
+    ip_address: str | None,
+    user_agent: str | None,
+    settings: Settings,
+    event_type: str = "LOGIN_SUCCEEDED",
+) -> tuple[AuthSession, str]:
+    now = utcnow()
+    user.last_login_at = now
     raw_token = generate_token(48)
     session = AuthSession(
         user_id=user.id,
@@ -130,20 +150,46 @@ def authenticate(
     audit_service.audit(
         db,
         actor_user_id=user.id,
-        action="AUTH_LOGIN",
+        action="AUTH_LOGIN" if event_type == "LOGIN_SUCCEEDED" else "AUTH_LOGIN_MFA",
         entity_type="user",
         entity_id=user.id,
         ip_address=ip_address,
     )
     audit_service.security(
         db,
-        event_type="LOGIN_SUCCEEDED",
+        event_type=event_type,
         severity=SecuritySeverity.INFO,
         user_id=user.id,
         ip_address=ip_address,
+        details={"mfa": event_type == "LOGIN_SUCCEEDED_MFA"},
     )
     db.commit()
     db.refresh(session)
+    return session, raw_token
+
+
+def authenticate(
+    db: Session,
+    *,
+    email: str,
+    password: str,
+    ip_address: str | None,
+    user_agent: str | None,
+    settings: Settings,
+) -> tuple[User, AuthSession | None, str | None]:
+    """Verify credentials; returns no session when a TOTP challenge is required."""
+    user = verify_credentials(
+        db, email=email, password=password, ip_address=ip_address, settings=settings
+    )
+    if user.mfa_enabled:
+        return user, None, None
+    session, raw_token = start_session(
+        db,
+        user=user,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        settings=settings,
+    )
     return user, session, raw_token
 
 
@@ -151,6 +197,20 @@ def revoke(db: Session, session: AuthSession) -> None:
     if session.revoked_at is None:
         session.revoked_at = utcnow()
         db.commit()
+
+
+def revoke_all_sessions(
+    db: Session, user_id: uuid.UUID, *, except_session_id: uuid.UUID | None = None
+) -> int:
+    query = (
+        update(AuthSession)
+        .where(AuthSession.user_id == user_id, AuthSession.revoked_at.is_(None))
+        .values(revoked_at=utcnow())
+    )
+    if except_session_id is not None:
+        query = query.where(AuthSession.id != except_session_id)
+    result = db.execute(query)
+    return int(result.rowcount or 0)
 
 
 def create_user(

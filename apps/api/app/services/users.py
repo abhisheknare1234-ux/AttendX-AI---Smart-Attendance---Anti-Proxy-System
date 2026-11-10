@@ -45,6 +45,7 @@ def user_out(db: Session, user: User) -> UserOut:
         role=user.role,
         status=user.status,
         must_change_password=user.must_change_password,
+        mfa_enabled=user.mfa_enabled,
         last_login_at=user.last_login_at,
         created_at=user.created_at,
         student=student,

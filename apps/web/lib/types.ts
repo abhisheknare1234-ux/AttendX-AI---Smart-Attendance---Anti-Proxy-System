@@ -24,6 +24,7 @@ export interface User {
   role: Role;
   status: "active" | "disabled" | "locked";
   must_change_password: boolean;
+  mfa_enabled: boolean;
   last_login_at: string | null;
   created_at: string;
   student: StudentSummary | null;
@@ -33,6 +34,29 @@ export interface User {
 export interface MeResponse {
   user: User;
   csrf_token: string;
+}
+
+export interface MfaChallenge {
+  mfa_required: true;
+  challenge_token: string;
+  expires_at: string;
+}
+
+export interface MfaStatus {
+  enabled: boolean;
+  enrolled_at: string | null;
+  pending_setup: boolean;
+}
+
+export interface MfaSetup {
+  secret: string;
+  otpauth_uri: string;
+}
+
+export interface PasswordResetIssued {
+  token: string;
+  expires_at: string;
+  reset_url: string;
 }
 
 export interface ClassOut {

@@ -9,6 +9,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core import errors
+from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.core.deps import AuthContext, require_admin, require_csrf
 from app.core.security import hash_password, password_problem
@@ -54,6 +55,8 @@ from app.schemas.accounts import (
     AuditEventOut,
     ImportCommitResponse,
     ImportPreviewResponse,
+    MfaStatusResponse,
+    PasswordResetIssued,
     ProvisionedUserResponse,
     SecurityEventOut,
     StudentCreateRequest,
@@ -63,7 +66,10 @@ from app.schemas.accounts import (
     UserUpdateRequest,
 )
 from app.services import audit as audit_service
+from app.services import auth as auth_service
 from app.services import import_csv
+from app.services import mfa as mfa_service
+from app.services import password_reset as password_reset_service
 from app.services.users import (
     provision_admin,
     provision_student,
@@ -147,6 +153,7 @@ def update_user(
             raise errors.bad_request(problem, "WEAK_PASSWORD")
         user.password_hash = hash_password(payload.new_password)
         user.must_change_password = True
+        auth_service.revoke_all_sessions(db, user.id)
     audit_service.audit(
         db,
         actor_user_id=auth.user.id,
@@ -158,6 +165,40 @@ def update_user(
     db.commit()
     db.refresh(user)
     return user_out(db, user)
+
+
+@router.post("/users/{user_id}/password-reset", response_model=PasswordResetIssued)
+def issue_password_reset(
+    user_id: uuid.UUID,
+    auth: AuthContext = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    user = db.get(User, user_id)
+    if user is None:
+        raise errors.not_found("User not found.")
+    raw_token, row = password_reset_service.issue_token(
+        db, user=user, actor_user_id=auth.user.id, settings=settings
+    )
+    base = settings.web_origin.rstrip("/")
+    return PasswordResetIssued(
+        token=raw_token,
+        expires_at=row.expires_at,
+        reset_url=f"{base}/reset-password?token={raw_token}",
+    )
+
+
+@router.post("/users/{user_id}/mfa-disable", response_model=MfaStatusResponse)
+def admin_disable_mfa(
+    user_id: uuid.UUID,
+    auth: AuthContext = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.get(User, user_id)
+    if user is None:
+        raise errors.not_found("User not found.")
+    mfa_service.clear_for_recovery(db, user=user, actor_user_id=auth.user.id)
+    return MfaStatusResponse(**mfa_service.status(user))
 
 
 @router.get("/students", response_model=list[UserOut])

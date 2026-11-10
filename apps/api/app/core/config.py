@@ -55,6 +55,13 @@ class Settings(BaseSettings):
     login_lockout_minutes: int = 15
     ip_rate_limit_per_minute: int = 60
 
+    # --- Multi-factor authentication and reset tokens --------------------
+    mfa_key: str = ""
+    mfa_required_for_staff: bool = False
+    mfa_challenge_ttl_minutes: int = 5
+    mfa_max_attempts: int = 5
+    password_reset_ttl_minutes: int = 60
+
     # --- Attendance defaults --------------------------------------------
     default_attendance_window_seconds: int = 180
     default_qr_refresh_seconds: int = 30

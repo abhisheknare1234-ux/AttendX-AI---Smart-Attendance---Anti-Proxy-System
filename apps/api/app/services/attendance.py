@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core import errors
 from app.core.config import Settings
-from app.core.rate_limit import limiter
+from app.core.rate_limit import check_rate_limit
 from app.core.security import (
     generate_pin,
     generate_reference,
@@ -753,12 +753,15 @@ def submit_pin(
         db.commit()
         return attempt, next_step(attempt, session)
 
-    attempt.pin_attempts += 1
-    allowed, retry_after = limiter.hit(
-        f"pin:{attempt.id}", settings.pin_max_attempts * 3, 300
+    allowed, retry_after = check_rate_limit(
+        db,
+        key=f"pin:{attempt.id}",
+        limit=settings.pin_max_attempts * 3,
+        window_seconds=300,
     )
     if not allowed:
         raise errors.too_many_requests("Too many PIN attempts for this check-in.", retry_after)
+    attempt.pin_attempts += 1
 
     if session.pin_hash is None or session.pin_expires_at is None or utcnow() > session.pin_expires_at:
         attempt.pin_status = FactorStatus.FAILED

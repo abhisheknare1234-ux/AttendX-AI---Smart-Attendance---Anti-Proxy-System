@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from typing import Literal
 
 from app.models import ImportStatus, UserRole, UserStatus
 
@@ -42,6 +43,7 @@ class UserOut(ORMModel):
     role: UserRole
     status: UserStatus
     must_change_password: bool
+    mfa_enabled: bool = False
     last_login_at: datetime | None = None
     created_at: datetime
     student: StudentSummary | None = None
@@ -51,6 +53,51 @@ class UserOut(ORMModel):
 class MeResponse(BaseModel):
     user: UserOut
     csrf_token: str
+
+
+class MfaChallengeResponse(BaseModel):
+    mfa_required: Literal[True] = True
+    challenge_token: str
+    expires_at: datetime
+
+
+LoginResponse = MeResponse | MfaChallengeResponse
+
+
+class MfaVerifyRequest(BaseModel):
+    challenge_token: str = Field(min_length=20, max_length=256)
+    code: str = Field(min_length=6, max_length=10)
+
+
+class MfaCodeRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=10)
+
+
+class MfaSetupResponse(BaseModel):
+    secret: str
+    otpauth_uri: str
+
+
+class MfaStatusResponse(BaseModel):
+    enabled: bool
+    enrolled_at: datetime | None = None
+    pending_setup: bool = False
+
+
+class MfaDisableRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+    code: str = Field(min_length=6, max_length=10)
+
+
+class PasswordResetRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=256)
+    new_password: str = Field(min_length=10, max_length=128)
+
+
+class PasswordResetIssued(BaseModel):
+    token: str
+    expires_at: datetime
+    reset_url: str
 
 
 class UserCreateRequest(BaseModel):
@@ -94,6 +141,7 @@ class UserUpdateRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=10, max_length=128)
+    mfa_code: str | None = Field(default=None, min_length=6, max_length=10)
 
 
 class ProvisionedUserResponse(BaseModel):

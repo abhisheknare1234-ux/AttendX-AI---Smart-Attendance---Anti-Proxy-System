@@ -7,7 +7,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { homeForRole, useAuth } from "@/components/auth-provider";
 import { Alert, Button, Field, Input } from "@/components/ui";
 import { ApiRequestError } from "@/lib/api";
-import type { User } from "@/lib/types";
+import type { MfaChallenge, User } from "@/lib/types";
 
 function safeNext(user: User): string {
   if (typeof window === "undefined") return homeForRole(user.role);
@@ -25,11 +25,13 @@ function safeNext(user: User): string {
 }
 
 export default function LoginPage() {
-  const { user, loading, login } = useAuth();
+  const { user, loading, login, verifyMfa } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [code, setCode] = useState("");
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,13 +46,37 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const signedIn = await login(email.trim(), password);
-      router.replace(safeNext(signedIn));
+      const outcome = await login(email.trim(), password);
+      if (outcome.kind === "mfa") {
+        setMfaChallenge(outcome.challenge);
+        setCode("");
+        return;
+      }
+      router.replace(safeNext(outcome.user));
     } catch (caught) {
       if (caught instanceof ApiRequestError) {
         setError(caught.message);
       } else {
         setError("Unable to reach the AttendX service. Check that the API is running and try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onVerify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!mfaChallenge) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const signedIn = await verifyMfa(mfaChallenge.challenge_token, code.trim());
+      router.replace(safeNext(signedIn));
+    } catch (caught) {
+      if (caught instanceof ApiRequestError) {
+        setError(caught.message);
+      } else {
+        setError("Unable to verify the authenticator code. Please try again.");
       }
     } finally {
       setSubmitting(false);
@@ -144,22 +170,57 @@ export default function LoginPage() {
 
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
           <div className="mb-6">
-            <h2 className="text-2xl font-semibold tracking-tight text-ink">Sign in to your workspace</h2>
+            <h2 className="text-2xl font-semibold tracking-tight text-ink">
+              {mfaChallenge ? "Two-factor verification" : "Sign in to your workspace"}
+            </h2>
             <p className="mt-1.5 text-sm text-muted">
-              Use the account provisioned by your institution. Student, teacher and administrator
-              roles share one secure backend.
+              {mfaChallenge
+                ? "Enter the current 6-digit code from your authenticator app to finish signing in."
+                : "Use the account provisioned by your institution. Student, teacher and administrator roles share one secure backend."}
             </p>
           </div>
 
           <div className="rounded-2xl border border-line bg-white p-6 shadow-[0_12px_32px_rgba(16,24,40,0.06)]">
             {error ? (
               <div className="mb-4">
-                <Alert tone="danger" title="Sign-in failed">
+                <Alert tone="danger" title={mfaChallenge ? "Verification failed" : "Sign-in failed"}>
                   {error}
                 </Alert>
               </div>
             ) : null}
 
+            {mfaChallenge ? (
+              <form onSubmit={onVerify} className="space-y-4" noValidate>
+                <Field label="Authenticator code" htmlFor="mfa-code" required>
+                  <Input
+                    id="mfa-code"
+                    data-testid="mfa-code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={10}
+                    placeholder="000000"
+                    className="text-center font-mono text-xl tracking-[0.3em]"
+                    value={code}
+                    onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 10))}
+                    required
+                  />
+                </Field>
+                <Button type="submit" loading={submitting} className="w-full" size="lg">
+                  Verify code <ArrowRight size={16} />
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMfaChallenge(null);
+                    setCode("");
+                    setError(null);
+                  }}
+                  className="w-full text-xs font-medium text-muted hover:text-brand"
+                >
+                  Use a different account
+                </button>
+              </form>
+            ) : (
             <form onSubmit={onSubmit} className="space-y-4" noValidate>
               <Field label="Institutional email" htmlFor="email" required>
                 <div className="relative">
@@ -214,12 +275,28 @@ export default function LoginPage() {
                 Sign in <ArrowRight size={16} />
               </Button>
             </form>
+            )}
 
             <div className="mt-5 border-t border-line pt-4 text-center">
-              <p className="text-xs leading-relaxed text-muted">
-                There is no public registration. Accounts are created by an administrator, and
-                teachers can only open sessions for classes they are assigned to.
-              </p>
+              {mfaChallenge ? (
+                <p className="text-xs leading-relaxed text-muted">
+                  Codes come from the authenticator app registered to your account. If you have
+                  lost access, ask an administrator to disable MFA and issue a new enrollment.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs leading-relaxed text-muted">
+                    There is no public registration. Accounts are created by an administrator, and
+                    teachers can only open sessions for classes they are assigned to.
+                  </p>
+                  <Link
+                    href="/reset-password"
+                    className="mt-2 inline-block text-xs font-semibold text-brand hover:underline"
+                  >
+                    Have a password reset token?
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 

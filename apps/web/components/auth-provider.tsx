@@ -11,12 +11,17 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "@/lib/api";
-import type { MeResponse, User } from "@/lib/types";
+import type { MeResponse, MfaChallenge, User } from "@/lib/types";
+
+export type LoginOutcome =
+  | { kind: "session"; user: User }
+  | { kind: "mfa"; challenge: MfaChallenge };
 
 interface AuthState {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<User>;
+  login: (email: string, password: string) => Promise<LoginOutcome>;
+  verifyMfa: (challengeToken: string, code: string) => Promise<User>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -44,9 +49,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const me = await api<MeResponse>("/auth/login", {
+    const response = await api<MeResponse | MfaChallenge>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
+    });
+    if ("mfa_required" in response) {
+      return { kind: "mfa" as const, challenge: response };
+    }
+    setUser(response.user);
+    setLoading(false);
+    return { kind: "session" as const, user: response.user };
+  }, []);
+
+  const verifyMfa = useCallback(async (challengeToken: string, code: string) => {
+    const me = await api<MeResponse>("/auth/mfa/verify", {
+      method: "POST",
+      body: JSON.stringify({ challenge_token: challengeToken, code }),
     });
     setUser(me.user);
     setLoading(false);
@@ -65,8 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   const value = useMemo(
-    () => ({ user, loading, login, logout, refresh }),
-    [user, loading, login, logout, refresh],
+    () => ({ user, loading, login, verifyMfa, logout, refresh }),
+    [user, loading, login, verifyMfa, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
